@@ -10,11 +10,11 @@ Este documento detalha o backlog técnico e as fases de execução do MVP da pla
 - [x] **Database Layer:** Configuração do Prisma ORM e schema inicial de `User` e `ChatSession`
 - [x] **Shadcn Integration:** Instalação e customização dos componentes base conforme diretrizes de raio de borda
 
-## 🟡 Fase 2: Serviços & Mock ERP (The Brain)
+## � Fase 2: Serviços & Mock ERP (The Brain)
 
-- [ ] **Senior Mock Service:** Criação do `lib/services/senior-mock.ts` para simular dados de Férias, Folha e Ponto
-- [ ] **PII Masking Layer:** Implementação de utilitários para anonimização de dados sensíveis antes do envio para IA
-- [ ] **Validation Schemas:** Definição de todos os contratos de dados via Zod
+- [x] **Senior Mock Service:** Criação do `lib/services/senior-mock.ts` para simular dados de Férias, Folha e Ponto
+- [x] **PII Masking Layer:** Implementação de utilitários para anonimização de dados sensíveis antes do envio para IA
+- [x] **Validation Schemas:** Definição de todos os contratos de dados via Zod
 
 ## 🔵 Fase 3: SuperApp - Interface do Colaborador (PWA)
 

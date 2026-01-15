@@ -1,310 +1,939 @@
 /**
- * Senior Mock Service
+ * Senior Mock Service - Unified Data Layer
  *
- * Centralized mock data service for simulating Senior ERP integration.
- * Provides fake data for: Férias, Folha, Benefícios, Ponto
+ * Centralized mock data service simulating Senior ERP integration.
+ * Serves both Admin Dashboard (desktop) and SuperApp (PWA mobile).
+ *
+ * Features:
+ * - Unified data for Férias, Folha, Benefícios, Ponto
+ * - Responsive metadata (short/long labels)
+ * - ISO 8601 dates for flexible UI formatting
+ * - Admin metrics aggregation
  *
  * @see .github/agents/Master.agent.md - Section 4
  */
 
 // ===========================================
-// TYPES
+// TYPES - Core Entities
 // ===========================================
+
+export type UserRole = "ADMIN" | "RH" | "USER";
 
 export interface Employee {
   id: string;
   matricula: string;
   nome: string;
+  nomeAbreviado: string; // Short label for mobile
   email: string;
-  cpf: string; // Masked: ***.***.***-XX
+  cpf: string; // Raw CPF (will be masked by security layer)
   cargo: string;
+  cargoAbreviado: string;
   departamento: string;
-  dataAdmissao: string;
+  departamentoAbreviado: string;
+  dataAdmissao: string; // ISO 8601
+  salarioBase: number;
+  status: "ativo" | "inativo" | "ferias" | "afastado";
 }
 
-export interface VacationBalance {
+// ===========================================
+// TYPES - Vacation (Férias)
+// ===========================================
+
+export interface VacationData {
   employeeId: string;
   saldoDias: number;
-  periodoAquisitivo: {
-    inicio: string;
-    fim: string;
+  diasGozados: number;
+  diasVendidos: number;
+  periodoAquisitivo: DateRange;
+  periodoConcessivo: DateRange;
+  proximoVencimento: string; // ISO 8601
+  historico: VacationRecord[];
+  /** Metadata for responsive UI */
+  _meta: {
+    saldoLabel: { short: string; long: string };
+    statusLabel: { short: string; long: string };
   };
-  periodoConcessivo: {
-    inicio: string;
-    fim: string;
-  };
-  feriasAgendadas: VacationSchedule[];
 }
 
-export interface VacationSchedule {
+export interface VacationRecord {
   id: string;
-  dataInicio: string;
-  dataFim: string;
+  dataInicio: string; // ISO 8601
+  dataFim: string; // ISO 8601
   dias: number;
-  status: "pendente" | "aprovada" | "rejeitada" | "gozada";
+  status: "pendente" | "aprovada" | "rejeitada" | "gozada" | "cancelada";
   abonoPecuniario: boolean;
+  diasAbono: number;
+  valorAbono: number;
+  observacao?: string;
+  aprovadoPor?: string;
+  dataAprovacao?: string; // ISO 8601
 }
 
-export interface PaySlip {
-  id: string;
+export interface DateRange {
+  inicio: string; // ISO 8601
+  fim: string; // ISO 8601
+}
+
+// ===========================================
+// TYPES - Payroll (Folha)
+// ===========================================
+
+export interface PayslipData {
   employeeId: string;
+  holerites: Payslip[];
+  resumoAnual: AnnualPayrollSummary;
+  /** Metadata for responsive UI */
+  _meta: {
+    ultimoHolerite: { short: string; long: string };
+  };
+}
+
+export interface Payslip {
+  id: string;
   competencia: string; // MM/YYYY
+  competenciaISO: string; // YYYY-MM for sorting
   salarioBruto: number;
-  descontos: PaySlipDeduction[];
+  proventos: PayslipItem[];
+  descontos: PayslipItem[];
+  totalProventos: number;
   totalDescontos: number;
   salarioLiquido: number;
-  dataPagamento: string;
+  fgts: number;
+  inssPatronal: number;
+  dataPagamento: string; // ISO 8601
+  status: "processado" | "pago" | "pendente";
+  /** Labels for tabular display (font-mono) */
+  _display: {
+    bruto: string;
+    liquido: string;
+    descontos: string;
+  };
 }
 
-export interface PaySlipDeduction {
+export interface PayslipItem {
+  codigo: string;
   descricao: string;
+  descricaoAbreviada: string;
+  referencia: string; // e.g., "30 dias", "8%"
   valor: number;
-  tipo: "inss" | "irrf" | "vt" | "vr" | "plano_saude" | "outros";
+  tipo: PayslipItemType;
 }
 
-export interface TimeRecord {
-  id: string;
+export type PayslipItemType =
+  | "salario"
+  | "hora_extra"
+  | "adicional"
+  | "bonus"
+  | "inss"
+  | "irrf"
+  | "vt"
+  | "vr"
+  | "plano_saude"
+  | "plano_odonto"
+  | "pensao"
+  | "emprestimo"
+  | "outros";
+
+export interface AnnualPayrollSummary {
+  ano: number;
+  totalBruto: number;
+  totalLiquido: number;
+  totalDescontos: number;
+  mediaLiquida: number;
+  mesesProcessados: number;
+}
+
+// ===========================================
+// TYPES - Benefits (Benefícios)
+// ===========================================
+
+export interface BenefitsData {
   employeeId: string;
-  data: string;
-  entradas: string[];
-  saidas: string[];
-  horasTrabalhadas: string;
-  status: "normal" | "falta" | "atestado" | "ferias" | "folga";
-  observacao?: string;
+  beneficios: Benefit[];
+  totalMensal: number;
+  /** Metadata for responsive UI */
+  _meta: {
+    resumo: { short: string; long: string };
+  };
 }
 
 export interface Benefit {
   id: string;
-  employeeId: string;
-  tipo: "vt" | "vr" | "va" | "plano_saude" | "plano_odonto" | "gympass";
+  tipo: BenefitType;
   nome: string;
+  nomeAbreviado: string;
+  operadora?: string;
+  plano?: string;
   valor: number;
+  valorDesconto: number;
+  coparticipacao: boolean;
   ativo: boolean;
+  dataInicio: string; // ISO 8601
+  dataFim?: string; // ISO 8601
+  dependentes: number;
+  /** Display data for tabular rendering */
+  _display: {
+    valor: string;
+    status: string;
+  };
+}
+
+export type BenefitType =
+  | "vt"
+  | "vr"
+  | "va"
+  | "plano_saude"
+  | "plano_odonto"
+  | "seguro_vida"
+  | "gympass"
+  | "auxilio_creche"
+  | "auxilio_educacao"
+  | "ppr";
+
+// ===========================================
+// TYPES - Time Tracking (Ponto)
+// ===========================================
+
+export interface ClockEventsData {
+  employeeId: string;
+  registros: ClockRecord[];
+  resumoMes: MonthlyClockSummary;
+  bancoHoras: number; // Saldo em minutos
+  /** Metadata for responsive UI */
+  _meta: {
+    bancoHorasLabel: { short: string; long: string };
+    statusHoje: { short: string; long: string };
+  };
+}
+
+export interface ClockRecord {
+  id: string;
+  data: string; // ISO 8601
+  eventos: ClockEvent[];
+  horasTrabalhadas: number; // Em minutos
+  horasEsperadas: number; // Em minutos
+  saldo: number; // Diferença em minutos
+  status: ClockStatus;
+  justificativa?: string;
+  anexoAtestado?: string;
+  /** Display data */
+  _display: {
+    trabalhadas: string; // "08:30"
+    saldo: string; // "+00:30" ou "-01:00"
+    status: string;
+  };
+}
+
+export interface ClockEvent {
+  tipo: "entrada" | "saida";
+  horario: string; // HH:mm
+  fonte: "relogio" | "app" | "manual" | "ajuste";
+  localizacao?: { lat: number; lng: number };
+}
+
+export type ClockStatus =
+  | "normal"
+  | "falta"
+  | "atestado"
+  | "ferias"
+  | "folga"
+  | "feriado"
+  | "compensacao"
+  | "incompleto";
+
+export interface MonthlyClockSummary {
+  competencia: string; // MM/YYYY
+  diasTrabalhados: number;
+  diasUteis: number;
+  horasTrabalhadas: number; // Em minutos
+  horasEsperadas: number; // Em minutos
+  horasExtras: number; // Em minutos
+  faltas: number;
+  atestados: number;
+  atrasos: number;
 }
 
 // ===========================================
-// MOCK DATA
+// TYPES - Admin Metrics (Dashboard)
 // ===========================================
 
-const mockEmployee: Employee = {
-  id: "emp-001",
-  matricula: "12345",
-  nome: "Maria Silva",
-  email: "maria.silva@empresa.com",
-  cpf: "***.***. ***-89", // Masked for PII protection
-  cargo: "Analista de Sistemas",
-  departamento: "Tecnologia",
-  dataAdmissao: "2022-03-15",
-};
+export interface AdminMetrics {
+  /** Visão geral de colaboradores */
+  colaboradores: {
+    total: number;
+    ativos: number;
+    inativos: number;
+    emFerias: number;
+    afastados: number;
+  };
+  /** Métricas de ponto do mês atual */
+  ponto: {
+    competencia: string;
+    totalFaltas: number;
+    totalAtestados: number;
+    totalAtrasos: number;
+    mediaHorasExtras: number; // Em minutos
+    colaboradoresComPendencia: number;
+  };
+  /** Métricas de folha */
+  folha: {
+    competencia: string;
+    totalBruto: number;
+    totalLiquido: number;
+    mediaSalarial: number;
+    totalEncargos: number;
+  };
+  /** Métricas de férias */
+  ferias: {
+    colaboradoresEmFerias: number;
+    feriasAVencer30Dias: number;
+    feriasAVencer60Dias: number;
+    solicitacoesPendentes: number;
+  };
+  /** Métricas de benefícios */
+  beneficios: {
+    totalMensal: number;
+    utilizacaoPlanoSaude: number; // Percentual
+    utilizacaoVR: number; // Percentual
+  };
+  /** Métricas de IA/Chat */
+  atendimentos: {
+    totalMes: number;
+    mediaTempoResposta: number; // Em segundos
+    taxaResolucao: number; // Percentual
+    temasMaisConsultados: { tema: string; count: number }[];
+  };
+  /** Timestamp da última atualização */
+  atualizadoEm: string; // ISO 8601
+}
 
-const mockVacationBalance: VacationBalance = {
-  employeeId: "emp-001",
-  saldoDias: 20,
-  periodoAquisitivo: {
-    inicio: "2024-03-15",
-    fim: "2025-03-14",
-  },
-  periodoConcessivo: {
-    inicio: "2025-03-15",
-    fim: "2026-03-14",
-  },
-  feriasAgendadas: [
-    {
-      id: "vac-001",
-      dataInicio: "2025-07-01",
-      dataFim: "2025-07-10",
-      dias: 10,
-      status: "aprovada",
-      abonoPecuniario: false,
-    },
-  ],
-};
+// ===========================================
+// MOCK DATA - Employees Database
+// ===========================================
 
-const mockPaySlips: PaySlip[] = [
+const MOCK_EMPLOYEES: Employee[] = [
   {
-    id: "pay-001",
-    employeeId: "emp-001",
-    competencia: "12/2025",
-    salarioBruto: 8500.0,
-    descontos: [
-      { descricao: "INSS", valor: 828.38, tipo: "inss" },
-      { descricao: "IRRF", valor: 869.36, tipo: "irrf" },
-      { descricao: "Vale Transporte", valor: 510.0, tipo: "vt" },
-      { descricao: "Plano de Saúde", valor: 350.0, tipo: "plano_saude" },
-    ],
-    totalDescontos: 2557.74,
-    salarioLiquido: 5942.26,
-    dataPagamento: "2025-01-05",
+    id: "emp-001",
+    matricula: "12345",
+    nome: "Maria Silva Santos",
+    nomeAbreviado: "Maria S.",
+    email: "maria.silva@empresa.com",
+    cpf: "123.456.789-00",
+    cargo: "Analista de Sistemas Sênior",
+    cargoAbreviado: "Analista Sr.",
+    departamento: "Tecnologia da Informação",
+    departamentoAbreviado: "TI",
+    dataAdmissao: "2022-03-15",
+    salarioBase: 8500.0,
+    status: "ativo",
   },
   {
-    id: "pay-002",
-    employeeId: "emp-001",
-    competencia: "11/2025",
-    salarioBruto: 8500.0,
-    descontos: [
-      { descricao: "INSS", valor: 828.38, tipo: "inss" },
-      { descricao: "IRRF", valor: 869.36, tipo: "irrf" },
-      { descricao: "Vale Transporte", valor: 510.0, tipo: "vt" },
-      { descricao: "Plano de Saúde", valor: 350.0, tipo: "plano_saude" },
-    ],
-    totalDescontos: 2557.74,
-    salarioLiquido: 5942.26,
-    dataPagamento: "2025-12-05",
+    id: "emp-002",
+    matricula: "12346",
+    nome: "João Pedro Oliveira",
+    nomeAbreviado: "João P.",
+    email: "joao.oliveira@empresa.com",
+    cpf: "234.567.890-11",
+    cargo: "Desenvolvedor Full Stack",
+    cargoAbreviado: "Dev Full Stack",
+    departamento: "Tecnologia da Informação",
+    departamentoAbreviado: "TI",
+    dataAdmissao: "2023-01-10",
+    salarioBase: 7200.0,
+    status: "ativo",
+  },
+  {
+    id: "emp-003",
+    matricula: "12347",
+    nome: "Ana Carolina Ferreira",
+    nomeAbreviado: "Ana C.",
+    email: "ana.ferreira@empresa.com",
+    cpf: "345.678.901-22",
+    cargo: "Coordenadora de RH",
+    cargoAbreviado: "Coord. RH",
+    departamento: "Recursos Humanos",
+    departamentoAbreviado: "RH",
+    dataAdmissao: "2021-06-01",
+    salarioBase: 9500.0,
+    status: "ativo",
+  },
+  {
+    id: "emp-004",
+    matricula: "12348",
+    nome: "Carlos Eduardo Lima",
+    nomeAbreviado: "Carlos E.",
+    email: "carlos.lima@empresa.com",
+    cpf: "456.789.012-33",
+    cargo: "Analista Financeiro",
+    cargoAbreviado: "Analista Fin.",
+    departamento: "Financeiro",
+    departamentoAbreviado: "Fin.",
+    dataAdmissao: "2020-09-20",
+    salarioBase: 6800.0,
+    status: "ferias",
+  },
+  {
+    id: "emp-005",
+    matricula: "12349",
+    nome: "Beatriz Costa Souza",
+    nomeAbreviado: "Beatriz C.",
+    email: "beatriz.souza@empresa.com",
+    cpf: "567.890.123-44",
+    cargo: "Designer UX/UI",
+    cargoAbreviado: "Designer UX",
+    departamento: "Tecnologia da Informação",
+    departamentoAbreviado: "TI",
+    dataAdmissao: "2024-02-01",
+    salarioBase: 6500.0,
+    status: "ativo",
   },
 ];
 
-const mockBenefits: Benefit[] = [
-  {
-    id: "ben-001",
-    employeeId: "emp-001",
-    tipo: "vr",
-    nome: "Vale Refeição",
-    valor: 33.0,
-    ativo: true,
-  },
-  {
-    id: "ben-002",
-    employeeId: "emp-001",
-    tipo: "vt",
-    nome: "Vale Transporte",
-    valor: 510.0,
-    ativo: true,
-  },
-  {
-    id: "ben-003",
-    employeeId: "emp-001",
-    tipo: "plano_saude",
-    nome: "Plano de Saúde Unimed",
-    valor: 350.0,
-    ativo: true,
-  },
-  {
-    id: "ben-004",
-    employeeId: "emp-001",
-    tipo: "gympass",
-    nome: "Wellhub (Gympass)",
-    valor: 0,
-    ativo: true,
-  },
-];
-
 // ===========================================
-// SERVICE FUNCTIONS
-// ===========================================
-
-/**
- * Get employee data by ID
- */
-export async function getEmployee(employeeId: string): Promise<Employee | null> {
-  // Simulate API delay
-  await delay(100);
-  return employeeId === mockEmployee.id ? mockEmployee : null;
-}
-
-/**
- * Get vacation balance for an employee
- */
-export async function getVacationBalance(
-  employeeId: string
-): Promise<VacationBalance | null> {
-  await delay(100);
-  return employeeId === mockVacationBalance.employeeId
-    ? mockVacationBalance
-    : null;
-}
-
-/**
- * Get payslips for an employee (most recent first)
- */
-export async function getPaySlips(
-  employeeId: string,
-  limit: number = 3
-): Promise<PaySlip[]> {
-  await delay(100);
-  return mockPaySlips
-    .filter((p) => p.employeeId === employeeId)
-    .slice(0, limit);
-}
-
-/**
- * Get benefits for an employee
- */
-export async function getBenefits(employeeId: string): Promise<Benefit[]> {
-  await delay(100);
-  return mockBenefits.filter((b) => b.employeeId === employeeId);
-}
-
-/**
- * Get time records for an employee (specific month)
- */
-export async function getTimeRecords(
-  employeeId: string,
-  month: string // MM/YYYY
-): Promise<TimeRecord[]> {
-  await delay(100);
-  // Generate mock time records for the month
-  return generateMockTimeRecords(employeeId, month);
-}
-
-// ===========================================
-// HELPERS
+// HELPER FUNCTIONS
 // ===========================================
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function generateMockTimeRecords(
-  employeeId: string,
-  month: string
-): TimeRecord[] {
-  const [mm, yyyy] = month.split("/");
-  const daysInMonth = new Date(Number(yyyy), Number(mm), 0).getDate();
-  const records: TimeRecord[] = [];
+function formatCurrencyDisplay(value: number): string {
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
 
-  for (let day = 1; day <= daysInMonth; day++) {
-    const date = new Date(Number(yyyy), Number(mm) - 1, day);
-    const dayOfWeek = date.getDay();
+function formatMinutesToHours(minutes: number): string {
+  const sign = minutes >= 0 ? "+" : "-";
+  const absMinutes = Math.abs(minutes);
+  const hours = Math.floor(absMinutes / 60);
+  const mins = absMinutes % 60;
+  return `${sign}${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
+}
+
+function getEmployeeById(userId: string): Employee | undefined {
+  return MOCK_EMPLOYEES.find((e) => e.id === userId);
+}
+
+// ===========================================
+// SERVICE FUNCTIONS - Vacation (Férias)
+// ===========================================
+
+/**
+ * Get vacation data for a user
+ * Unified for both SuperApp (user view) and Admin (RH view)
+ */
+export async function getVacationData(userId: string): Promise<VacationData | null> {
+  await delay(80);
+
+  const employee = getEmployeeById(userId);
+  if (!employee) return null;
+
+  const saldoDias = 20;
+  const diasGozados = 10;
+
+  return {
+    employeeId: userId,
+    saldoDias,
+    diasGozados,
+    diasVendidos: 0,
+    periodoAquisitivo: {
+      inicio: "2025-03-15",
+      fim: "2026-03-14",
+    },
+    periodoConcessivo: {
+      inicio: "2026-03-15",
+      fim: "2027-03-14",
+    },
+    proximoVencimento: "2027-03-14",
+    historico: [
+      {
+        id: "vac-001",
+        dataInicio: "2025-07-01",
+        dataFim: "2025-07-10",
+        dias: 10,
+        status: "gozada",
+        abonoPecuniario: false,
+        diasAbono: 0,
+        valorAbono: 0,
+        aprovadoPor: "emp-003",
+        dataAprovacao: "2025-05-15",
+      },
+      {
+        id: "vac-002",
+        dataInicio: "2026-01-15",
+        dataFim: "2026-01-24",
+        dias: 10,
+        status: "aprovada",
+        abonoPecuniario: false,
+        diasAbono: 0,
+        valorAbono: 0,
+        aprovadoPor: "emp-003",
+        dataAprovacao: "2025-11-20",
+      },
+    ],
+    _meta: {
+      saldoLabel: {
+        short: `${saldoDias}d`,
+        long: `${saldoDias} dias disponíveis`,
+      },
+      statusLabel: {
+        short: "OK",
+        long: "Período em dia",
+      },
+    },
+  };
+}
+
+// ===========================================
+// SERVICE FUNCTIONS - Payroll (Folha)
+// ===========================================
+
+/**
+ * Get payslip data for a user
+ * Returns detailed payslips with display-ready values
+ */
+export async function getPayslips(userId: string): Promise<PayslipData | null> {
+  await delay(100);
+
+  const employee = getEmployeeById(userId);
+  if (!employee) return null;
+
+  const salarioBase = employee.salarioBase;
+  const inss = Math.min(salarioBase * 0.14, 828.38);
+  const baseIRRF = salarioBase - inss;
+  const irrf = baseIRRF > 4664.68 ? (baseIRRF - 4664.68) * 0.275 + 869.36 : 0;
+  const vt = salarioBase * 0.06;
+  const planoSaude = 350.0;
+  const totalDescontos = inss + irrf + vt + planoSaude;
+  const liquido = salarioBase - totalDescontos;
+
+  const createPayslip = (competencia: string, competenciaISO: string, dataPagamento: string): Payslip => ({
+    id: `pay-${competenciaISO}-${userId}`,
+    competencia,
+    competenciaISO,
+    salarioBruto: salarioBase,
+    proventos: [
+      {
+        codigo: "001",
+        descricao: "Salário Base",
+        descricaoAbreviada: "Salário",
+        referencia: "30 dias",
+        valor: salarioBase,
+        tipo: "salario",
+      },
+    ],
+    descontos: [
+      {
+        codigo: "101",
+        descricao: "INSS",
+        descricaoAbreviada: "INSS",
+        referencia: "14%",
+        valor: inss,
+        tipo: "inss",
+      },
+      {
+        codigo: "102",
+        descricao: "Imposto de Renda Retido na Fonte",
+        descricaoAbreviada: "IRRF",
+        referencia: "27,5%",
+        valor: irrf,
+        tipo: "irrf",
+      },
+      {
+        codigo: "103",
+        descricao: "Vale Transporte",
+        descricaoAbreviada: "VT",
+        referencia: "6%",
+        valor: vt,
+        tipo: "vt",
+      },
+      {
+        codigo: "104",
+        descricao: "Plano de Saúde",
+        descricaoAbreviada: "Plano Saúde",
+        referencia: "Titular",
+        valor: planoSaude,
+        tipo: "plano_saude",
+      },
+    ],
+    totalProventos: salarioBase,
+    totalDescontos,
+    salarioLiquido: liquido,
+    fgts: salarioBase * 0.08,
+    inssPatronal: salarioBase * 0.2,
+    dataPagamento,
+    status: "pago",
+    _display: {
+      bruto: formatCurrencyDisplay(salarioBase),
+      liquido: formatCurrencyDisplay(liquido),
+      descontos: formatCurrencyDisplay(totalDescontos),
+    },
+  });
+
+  const holerites: Payslip[] = [
+    createPayslip("12/2025", "2025-12", "2026-01-05"),
+    createPayslip("11/2025", "2025-11", "2025-12-05"),
+    createPayslip("10/2025", "2025-10", "2025-11-05"),
+    createPayslip("09/2025", "2025-09", "2025-10-05"),
+    createPayslip("08/2025", "2025-08", "2025-09-05"),
+    createPayslip("07/2025", "2025-07", "2025-08-05"),
+  ];
+
+  const totalBruto = holerites.reduce((sum, h) => sum + h.salarioBruto, 0);
+  const totalLiquido = holerites.reduce((sum, h) => sum + h.salarioLiquido, 0);
+
+  return {
+    employeeId: userId,
+    holerites,
+    resumoAnual: {
+      ano: 2025,
+      totalBruto,
+      totalLiquido,
+      totalDescontos: totalBruto - totalLiquido,
+      mediaLiquida: totalLiquido / holerites.length,
+      mesesProcessados: holerites.length,
+    },
+    _meta: {
+      ultimoHolerite: {
+        short: "12/2025",
+        long: "Dezembro de 2025",
+      },
+    },
+  };
+}
+
+// ===========================================
+// SERVICE FUNCTIONS - Benefits (Benefícios)
+// ===========================================
+
+/**
+ * Get benefits data for a user
+ */
+export async function getBenefits(userId: string): Promise<BenefitsData | null> {
+  await delay(70);
+
+  const employee = getEmployeeById(userId);
+  if (!employee) return null;
+
+  const beneficios: Benefit[] = [
+    {
+      id: "ben-001",
+      tipo: "vr",
+      nome: "Vale Refeição",
+      nomeAbreviado: "VR",
+      operadora: "Alelo",
+      valor: 33.0 * 22, // Dias úteis
+      valorDesconto: 0,
+      coparticipacao: false,
+      ativo: true,
+      dataInicio: "2022-03-15",
+      dependentes: 0,
+      _display: {
+        valor: formatCurrencyDisplay(33.0 * 22),
+        status: "Ativo",
+      },
+    },
+    {
+      id: "ben-002",
+      tipo: "vt",
+      nome: "Vale Transporte",
+      nomeAbreviado: "VT",
+      operadora: "SPTrans",
+      valor: 510.0,
+      valorDesconto: employee.salarioBase * 0.06,
+      coparticipacao: true,
+      ativo: true,
+      dataInicio: "2022-03-15",
+      dependentes: 0,
+      _display: {
+        valor: formatCurrencyDisplay(510.0),
+        status: "Ativo",
+      },
+    },
+    {
+      id: "ben-003",
+      tipo: "plano_saude",
+      nome: "Plano de Saúde Unimed",
+      nomeAbreviado: "Saúde",
+      operadora: "Unimed",
+      plano: "Executivo Nacional",
+      valor: 850.0,
+      valorDesconto: 350.0,
+      coparticipacao: true,
+      ativo: true,
+      dataInicio: "2022-03-15",
+      dependentes: 0,
+      _display: {
+        valor: formatCurrencyDisplay(850.0),
+        status: "Ativo",
+      },
+    },
+    {
+      id: "ben-004",
+      tipo: "plano_odonto",
+      nome: "Plano Odontológico Odontoprev",
+      nomeAbreviado: "Odonto",
+      operadora: "Odontoprev",
+      plano: "Integral",
+      valor: 45.0,
+      valorDesconto: 0,
+      coparticipacao: false,
+      ativo: true,
+      dataInicio: "2022-03-15",
+      dependentes: 0,
+      _display: {
+        valor: formatCurrencyDisplay(45.0),
+        status: "Ativo",
+      },
+    },
+    {
+      id: "ben-005",
+      tipo: "gympass",
+      nome: "Wellhub (Gympass)",
+      nomeAbreviado: "Gympass",
+      operadora: "Wellhub",
+      plano: "Gold",
+      valor: 0,
+      valorDesconto: 0,
+      coparticipacao: false,
+      ativo: true,
+      dataInicio: "2024-01-01",
+      dependentes: 0,
+      _display: {
+        valor: "Gratuito",
+        status: "Ativo",
+      },
+    },
+    {
+      id: "ben-006",
+      tipo: "seguro_vida",
+      nome: "Seguro de Vida",
+      nomeAbreviado: "Seguro",
+      operadora: "Porto Seguro",
+      plano: "Básico",
+      valor: 25.0,
+      valorDesconto: 0,
+      coparticipacao: false,
+      ativo: true,
+      dataInicio: "2022-03-15",
+      dependentes: 0,
+      _display: {
+        valor: formatCurrencyDisplay(25.0),
+        status: "Ativo",
+      },
+    },
+  ];
+
+  const totalMensal = beneficios
+    .filter((b) => b.ativo)
+    .reduce((sum, b) => sum + b.valor, 0);
+
+  return {
+    employeeId: userId,
+    beneficios,
+    totalMensal,
+    _meta: {
+      resumo: {
+        short: `${beneficios.filter((b) => b.ativo).length} ativos`,
+        long: `${beneficios.filter((b) => b.ativo).length} benefícios ativos`,
+      },
+    },
+  };
+}
+
+// ===========================================
+// SERVICE FUNCTIONS - Clock Events (Ponto)
+// ===========================================
+
+/**
+ * Get clock events data for a user
+ */
+export async function getClockEvents(userId: string): Promise<ClockEventsData | null> {
+  await delay(90);
+
+  const employee = getEmployeeById(userId);
+  if (!employee) return null;
+
+  // Generate mock records for current month
+  const hoje = new Date();
+  const registros: ClockRecord[] = [];
+
+  // Generate 15 working days of records
+  for (let i = 15; i >= 0; i--) {
+    const date = new Date(hoje);
+    date.setDate(date.getDate() - i);
 
     // Skip weekends
-    if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+    if (date.getDay() === 0 || date.getDay() === 6) continue;
 
     const dateStr = date.toISOString().split("T")[0];
+    const isToday = i === 0;
+    const horasTrabalhadas = isToday ? 240 : 480; // 4h if today (still working), 8h otherwise
+    const horasEsperadas = 480;
+    const saldo = horasTrabalhadas - horasEsperadas;
 
-    records.push({
-      id: `time-${dateStr}`,
-      employeeId,
+    registros.push({
+      id: `clock-${dateStr}`,
       data: dateStr,
-      entradas: ["08:00", "13:00"],
-      saidas: ["12:00", "17:00"],
-      horasTrabalhadas: "08:00",
-      status: "normal",
+      eventos: isToday
+        ? [
+            { tipo: "entrada", horario: "08:02", fonte: "relogio" },
+            { tipo: "saida", horario: "12:01", fonte: "relogio" },
+            { tipo: "entrada", horario: "13:03", fonte: "relogio" },
+          ]
+        : [
+            { tipo: "entrada", horario: "08:00", fonte: "relogio" },
+            { tipo: "saida", horario: "12:00", fonte: "relogio" },
+            { tipo: "entrada", horario: "13:00", fonte: "relogio" },
+            { tipo: "saida", horario: "17:00", fonte: "relogio" },
+          ],
+      horasTrabalhadas,
+      horasEsperadas,
+      saldo,
+      status: isToday ? "incompleto" : "normal",
+      _display: {
+        trabalhadas: `${Math.floor(horasTrabalhadas / 60).toString().padStart(2, "0")}:${(horasTrabalhadas % 60).toString().padStart(2, "0")}`,
+        saldo: formatMinutesToHours(saldo),
+        status: isToday ? "Em andamento" : "Completo",
+      },
     });
   }
 
-  return records;
+  const diasTrabalhados = registros.filter((r) => r.status === "normal").length;
+  const horasTrabalhadas = registros.reduce((sum, r) => sum + r.horasTrabalhadas, 0);
+  const bancoHoras = registros.reduce((sum, r) => sum + r.saldo, 0);
+
+  return {
+    employeeId: userId,
+    registros,
+    resumoMes: {
+      competencia: `${(hoje.getMonth() + 1).toString().padStart(2, "0")}/${hoje.getFullYear()}`,
+      diasTrabalhados,
+      diasUteis: 22,
+      horasTrabalhadas,
+      horasEsperadas: 22 * 480,
+      horasExtras: Math.max(0, bancoHoras),
+      faltas: 0,
+      atestados: 0,
+      atrasos: 2,
+    },
+    bancoHoras,
+    _meta: {
+      bancoHorasLabel: {
+        short: formatMinutesToHours(bancoHoras),
+        long: `Banco de horas: ${formatMinutesToHours(bancoHoras)}`,
+      },
+      statusHoje: {
+        short: "Trabalhando",
+        long: "Atualmente trabalhando",
+      },
+    },
+  };
 }
 
 // ===========================================
-// PII MASKING UTILITIES
+// SERVICE FUNCTIONS - Admin Metrics
 // ===========================================
 
 /**
- * Mask CPF for display (show only last 2 digits)
+ * Get aggregated metrics for Admin Dashboard
+ * This function is exclusive to RH/ADMIN roles
  */
-export function maskCPF(cpf: string): string {
-  const digits = cpf.replace(/\D/g, "");
-  if (digits.length !== 11) return cpf;
-  return `***.***. ***-${digits.slice(-2)}`;
+export async function getAdminMetrics(): Promise<AdminMetrics> {
+  await delay(150);
+
+  const hoje = new Date().toISOString();
+  const competencia = `${(new Date().getMonth() + 1).toString().padStart(2, "0")}/${new Date().getFullYear()}`;
+
+  const totalColaboradores = MOCK_EMPLOYEES.length;
+  const ativos = MOCK_EMPLOYEES.filter((e) => e.status === "ativo").length;
+  const emFerias = MOCK_EMPLOYEES.filter((e) => e.status === "ferias").length;
+
+  const totalBruto = MOCK_EMPLOYEES.reduce((sum, e) => sum + e.salarioBase, 0);
+  const mediaSalarial = totalBruto / totalColaboradores;
+
+  return {
+    colaboradores: {
+      total: totalColaboradores,
+      ativos,
+      inativos: 0,
+      emFerias,
+      afastados: 0,
+    },
+    ponto: {
+      competencia,
+      totalFaltas: 3,
+      totalAtestados: 2,
+      totalAtrasos: 8,
+      mediaHorasExtras: 45, // 45 minutos
+      colaboradoresComPendencia: 2,
+    },
+    folha: {
+      competencia,
+      totalBruto,
+      totalLiquido: totalBruto * 0.72, // Aproximação
+      mediaSalarial,
+      totalEncargos: totalBruto * 0.35,
+    },
+    ferias: {
+      colaboradoresEmFerias: emFerias,
+      feriasAVencer30Dias: 2,
+      feriasAVencer60Dias: 4,
+      solicitacoesPendentes: 1,
+    },
+    beneficios: {
+      totalMensal: totalColaboradores * 2100, // Aproximação
+      utilizacaoPlanoSaude: 85,
+      utilizacaoVR: 98,
+    },
+    atendimentos: {
+      totalMes: 156,
+      mediaTempoResposta: 12, // 12 segundos
+      taxaResolucao: 94,
+      temasMaisConsultados: [
+        { tema: "Férias", count: 45 },
+        { tema: "Holerite", count: 38 },
+        { tema: "Benefícios", count: 32 },
+        { tema: "Ponto", count: 28 },
+        { tema: "Outros", count: 13 },
+      ],
+    },
+    atualizadoEm: hoje,
+  };
+}
+
+// ===========================================
+// SERVICE FUNCTIONS - Employee Data
+// ===========================================
+
+/**
+ * Get employee by ID
+ */
+export async function getEmployee(userId: string): Promise<Employee | null> {
+  await delay(50);
+  return getEmployeeById(userId) || null;
 }
 
 /**
- * Mask salary value (show range instead of exact value)
+ * Get all employees (Admin only)
  */
-export function maskSalary(value: number): string {
-  if (value < 3000) return "Até R$ 3.000";
-  if (value < 5000) return "R$ 3.000 - R$ 5.000";
-  if (value < 8000) return "R$ 5.000 - R$ 8.000";
-  if (value < 12000) return "R$ 8.000 - R$ 12.000";
-  return "Acima de R$ 12.000";
+export async function getAllEmployees(): Promise<Employee[]> {
+  await delay(100);
+  return [...MOCK_EMPLOYEES];
+}
+
+/**
+ * Search employees by name, matricula or email
+ */
+export async function searchEmployees(query: string): Promise<Employee[]> {
+  await delay(80);
+  const lowerQuery = query.toLowerCase();
+  return MOCK_EMPLOYEES.filter(
+    (e) =>
+      e.nome.toLowerCase().includes(lowerQuery) ||
+      e.matricula.includes(query) ||
+      e.email.toLowerCase().includes(lowerQuery)
+  );
 }
