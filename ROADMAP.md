@@ -4,11 +4,11 @@ Este documento detalha o backlog técnico e as fases de execução do MVP da pla
 
 ## 🟢 Fase 1: Fundação & Infraestrutura (Setup)
 
-- [ ] **Next.js 15 Setup:** Inicialização com App Router e React 19
-- [ ] **Design System:** Configuração do Tailwind com escala de 4px e tokens de cor "Cool Slate"
-- [ ] **Security Hardening:** Implementação do `middleware.ts` com headers de segurança (CSP, HSTS)
-- [ ] **Database Layer:** Configuração do Prisma ORM e schema inicial de `User` e `ChatSession`
-- [ ] **Shadcn Integration:** Instalação e customização dos componentes base conforme diretrizes de raio de borda
+- [x] **Next.js 15 Setup:** Inicialização com App Router e React 19
+- [x] **Design System:** Configuração do Tailwind com escala de 4px e tokens de cor "Cool Slate"
+- [x] **Security Hardening:** Implementação do `middleware.ts` com headers de segurança (CSP, HSTS)
+- [x] **Database Layer:** Configuração do Prisma ORM e schema inicial de `User` e `ChatSession`
+- [x] **Shadcn Integration:** Instalação e customização dos componentes base conforme diretrizes de raio de borda
 
 ## 🟡 Fase 2: Serviços & Mock ERP (The Brain)
 
