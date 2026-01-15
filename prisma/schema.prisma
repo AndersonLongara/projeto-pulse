@@ -1,14 +1,14 @@
 // Prisma Schema - Pulse IA
-// Database: PostgreSQL
+// Database: SQLite (MVP)
 // @see .github/agents/Master.agent.md
 
 generator client {
   provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
 }
 
 // ===========================================
@@ -20,15 +20,19 @@ model User {
   matricula     String    @unique
   email         String    @unique
   nome          String
-  cpfHash       String    // Hashed CPF for security
+  passwordHash  String    // Hashed password for authentication
+  cpfHash       String?   // Hashed CPF for security (optional for admin users)
   cargo         String?
   departamento  String?
-  role          Role      @default(COLABORADOR)
+  role          String    @default("USER") // SUPER_ADMIN, ADMIN, USER
   ativo         Boolean   @default(true)
   dataAdmissao  DateTime?
+  avatarUrl     String?
   
   // Relations
-  chatSessions  ChatSession[]
+  chatSessions     ChatSession[]
+  assignedSessions ChatSession[] @relation("AssignedAdmin")
+  sentMessages     ChatMessage[] @relation("MessageSender")
   
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -36,59 +40,47 @@ model User {
   @@map("users")
 }
 
-enum Role {
-  COLABORADOR
-  RH
-  ADMIN
-}
-
 // ===========================================
 // CHAT & AI CONVERSATIONS
 // ===========================================
 
 model ChatSession {
-  id          String    @id @default(cuid())
-  userId      String
-  titulo      String?   // Auto-generated from first message
-  status      SessionStatus @default(ATIVA)
+  id              String    @id @default(cuid())
+  userId          String
+  titulo          String?   // Auto-generated from first message
+  status          String    @default("ACTIVE_IA") // ACTIVE_IA, WAITING_HUMAN, HUMAN_INTERVENTION
+  assignedAdminId String?   // Admin who took over the conversation
   
   // Relations
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages    ChatMessage[]
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedAdmin User?     @relation("AssignedAdmin", fields: [assignedAdminId], references: [id])
+  messages      ChatMessage[]
   
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([userId])
+  @@index([status])
   @@map("chat_sessions")
-}
-
-enum SessionStatus {
-  ATIVA
-  ENCERRADA
-  TRANSFERIDA // Transferred to human agent
 }
 
 model ChatMessage {
   id          String    @id @default(cuid())
   sessionId   String
-  role        MessageRole
+  senderType  String    // USER, AI, ADMIN
+  senderId    String?   // User ID who sent the message (null for AI)
   content     String
-  metadata    Json?     // For storing AI context, tokens used, etc.
+  metadata    String?   // JSON string for storing AI context, tokens used, etc.
   
   // Relations
   session     ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sender      User?       @relation("MessageSender", fields: [senderId], references: [id])
   
   createdAt   DateTime  @default(now())
 
   @@index([sessionId])
+  @@index([senderType])
   @@map("chat_messages")
-}
-
-enum MessageRole {
-  USER
-  ASSISTANT
-  SYSTEM
 }
 
 // ===========================================
@@ -98,10 +90,10 @@ enum MessageRole {
 model AuditLog {
   id          String    @id @default(cuid())
   userId      String?
-  action      String    // e.g., "LOGIN", "VACATION_REQUEST", "CHAT_MESSAGE"
+  action      String    // e.g., "LOGIN", "VACATION_REQUEST", "CHAT_MESSAGE", "INTERVENTION_START"
   resource    String?   // e.g., "ChatSession", "User"
   resourceId  String?
-  metadata    Json?     // Additional context
+  metadata    String?   // JSON string for additional context
   ipAddress   String?
   userAgent   String?
   
