@@ -2,6 +2,8 @@
 
 O **Pulse IA** é uma plataforma corporativa de próxima geração desenhada para transformar a interação entre colaboradores e o departamento de RH/DP. Através de um **SuperApp** (PWA) e um **Dashboard Administrativo** de alta densidade, o sistema utiliza IA para descentralizar consultas e automatizar processos, integrando-se futuramente ao ERP Senior.
 
+> 📋 **[Ver Roadmap Completo](ROADMAP.md)** - Acompanhe o progresso de desenvolvimento fase a fase
+
 ## 🚀 Visão Geral
 
 O projeto visa substituir canais informais (como WhatsApp) por uma solução **segura, rápida e centralizada**, onde a IA atua como uma assistente de RH disponível 24/7 para sanar dúvidas sobre férias, pagamentos e benefícios.
