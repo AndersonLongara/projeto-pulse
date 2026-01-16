@@ -75,6 +75,32 @@ export interface DateRange {
 }
 
 // ===========================================
+// TYPES - Events (Eventos)
+// ===========================================
+
+export type EventType = 
+  | "ferias"
+  | "avaliacao"
+  | "treinamento"
+  | "aniversario_empresa"
+  | "prazo_documentos"
+  | "reuniao";
+
+export interface UpcomingEvent {
+  id: string;
+  tipo: EventType;
+  titulo: string;
+  descricao: string;
+  data: string; // ISO 8601
+  dataFim?: string; // Para eventos que duram múltiplos dias (férias)
+  prioridade: "baixa" | "media" | "alta";
+  acao?: {
+    label: string;
+    href: string;
+  };
+}
+
+// ===========================================
 // TYPES - Payroll (Folha)
 // ===========================================
 
@@ -404,7 +430,11 @@ function formatCurrencyDisplay(value: number): string {
   });
 }
 
-function formatMinutesToHours(minutes: number): string {
+/**
+ * Format minutes to HH:mm with sign
+ * Exported for testing
+ */
+export function formatMinutesToHours(minutes: number): string {
   const sign = minutes >= 0 ? "+" : "-";
   const absMinutes = Math.abs(minutes);
   const hours = Math.floor(absMinutes / 60);
@@ -412,7 +442,11 @@ function formatMinutesToHours(minutes: number): string {
   return `${sign}${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
 }
 
-function getEmployeeById(userId: string): Employee | undefined {
+/**
+ * Get employee by ID
+ * Exported for testing
+ */
+export function getEmployeeById(userId: string): Employee | undefined {
   return MOCK_EMPLOYEES.find((e) => e.id === userId);
 }
 
@@ -936,4 +970,210 @@ export async function searchEmployees(query: string): Promise<Employee[]> {
       e.matricula.includes(query) ||
       e.email.toLowerCase().includes(lowerQuery)
   );
+}
+
+// ===========================================
+// SERVICE FUNCTIONS - Upcoming Events
+// ===========================================
+
+/**
+ * Get upcoming events for a user
+ * Returns relevant HR events like vacations, evaluations, trainings, etc.
+ */
+export async function getUpcomingEvents(userId: string): Promise<UpcomingEvent[]> {
+  await delay(60);
+
+  const employee = getEmployeeById(userId);
+  if (!employee) return [];
+
+  const hoje = new Date();
+  const events: UpcomingEvent[] = [];
+
+  // Próximas férias programadas (da página de férias)
+  const vacation = await getVacationData(userId);
+  const feriasAprovadas = vacation?.historico.filter(h => h.status === "aprovada") || [];
+  
+  for (const ferias of feriasAprovadas) {
+    const dataInicio = new Date(ferias.dataInicio);
+    if (dataInicio > hoje) {
+      events.push({
+        id: `event-ferias-${ferias.id}`,
+        tipo: "ferias",
+        titulo: "Férias Programadas",
+        descricao: `${ferias.dias} dias de férias`,
+        data: ferias.dataInicio,
+        dataFim: ferias.dataFim,
+        prioridade: "alta",
+        acao: {
+          label: "Ver detalhes",
+          href: "/ferias",
+        },
+      });
+    }
+  }
+
+  // Aniversário de empresa (tempo de casa)
+  const dataAdmissao = new Date(employee.dataAdmissao);
+  const proximoAniversario = new Date(hoje.getFullYear(), dataAdmissao.getMonth(), dataAdmissao.getDate());
+  
+  // Se já passou este ano, pega o do ano que vem
+  if (proximoAniversario < hoje) {
+    proximoAniversario.setFullYear(hoje.getFullYear() + 1);
+  }
+  
+  const diasAteAniversario = Math.ceil((proximoAniversario.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+  
+  // Mostrar apenas se faltar menos de 60 dias
+  if (diasAteAniversario <= 60 && diasAteAniversario > 0) {
+    const anosDeEmpresa = proximoAniversario.getFullYear() - dataAdmissao.getFullYear();
+    events.push({
+      id: "event-aniversario-empresa",
+      tipo: "aniversario_empresa",
+      titulo: `${anosDeEmpresa} anos na empresa`,
+      descricao: `Você completa ${anosDeEmpresa} ${anosDeEmpresa === 1 ? 'ano' : 'anos'} de empresa`,
+      data: proximoAniversario.toISOString().split("T")[0],
+      prioridade: "baixa",
+    });
+  }
+
+  // Avaliação de desempenho (semestral - junho e dezembro)
+  const mesAtual = hoje.getMonth();
+  const anoAtual = hoje.getFullYear();
+  let proximaAvaliacao: Date | null = null;
+  
+  if (mesAtual < 5) {
+    // Próxima é em junho
+    proximaAvaliacao = new Date(anoAtual, 5, 15); // 15 de junho
+  } else if (mesAtual < 11) {
+    // Próxima é em dezembro
+    proximaAvaliacao = new Date(anoAtual, 11, 10); // 10 de dezembro
+  } else {
+    // Próxima é junho do ano que vem
+    proximaAvaliacao = new Date(anoAtual + 1, 5, 15);
+  }
+  
+  const diasAteAvaliacao = Math.ceil((proximaAvaliacao.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+  
+  if (diasAteAvaliacao <= 45 && diasAteAvaliacao > 0) {
+    events.push({
+      id: "event-avaliacao",
+      tipo: "avaliacao",
+      titulo: "Avaliação de Desempenho",
+      descricao: "Ciclo semestral de avaliação",
+      data: proximaAvaliacao.toISOString().split("T")[0],
+      prioridade: "media",
+      acao: {
+        label: "Preparar autoavaliação",
+        href: "/perfil",
+      },
+    });
+  }
+
+  // Treinamento obrigatório (exemplo: segurança do trabalho anual)
+  const dataUltimoTreinamento = new Date(2025, 2, 10); // 10 de março de 2025
+  const proximoTreinamento = new Date(dataUltimoTreinamento);
+  proximoTreinamento.setFullYear(proximoTreinamento.getFullYear() + 1);
+  
+  const diasAteTreinamento = Math.ceil((proximoTreinamento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+  
+  if (diasAteTreinamento <= 30 && diasAteTreinamento > 0) {
+    events.push({
+      id: "event-treinamento",
+      tipo: "treinamento",
+      titulo: "Treinamento de Segurança",
+      descricao: "Treinamento obrigatório anual",
+      data: proximoTreinamento.toISOString().split("T")[0],
+      prioridade: "alta",
+      acao: {
+        label: "Agendar horário",
+        href: "/chat",
+      },
+    });
+  }
+
+  // Prazo para declaração de dependentes (anual - sempre em abril)
+  const prazoDependentes = new Date(anoAtual, 3, 30); // 30 de abril
+  if (prazoDependentes < hoje) {
+    prazoDependentes.setFullYear(anoAtual + 1);
+  }
+  
+  const diasAtePrazo = Math.ceil((prazoDependentes.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+  
+  if (diasAtePrazo <= 45 && diasAtePrazo > 0) {
+    events.push({
+      id: "event-dependentes",
+      tipo: "prazo_documentos",
+      titulo: "Declaração de Dependentes",
+      descricao: "Prazo para atualização de dependentes (IR)",
+      data: prazoDependentes.toISOString().split("T")[0],
+      prioridade: "media",
+      acao: {
+        label: "Atualizar dados",
+        href: "/perfil",
+      },
+    });
+  }
+
+  // Ordenar eventos por data (mais próximo primeiro)
+  events.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+
+  return events;
+}
+
+// ===========================================
+// UTILITY FUNCTIONS - Exported for Testing
+// ===========================================
+
+/**
+ * Calculate vacation balance
+ * Brazilian law: 30 days per aquisitive period
+ */
+export function calculateVacationBalance(
+  totalDays: number,
+  usedDays: number,
+  soldDays: number
+): number {
+  const balance = totalDays - usedDays - soldDays;
+  return Math.max(0, balance);
+}
+
+/**
+ * Calculate vacation periods based on admission date
+ */
+export function calculateVacationPeriods(admissionDate: Date): {
+  aquisitivo: { inicio: string; fim: string };
+  concessivo: { inicio: string; fim: string };
+} {
+  const hoje = new Date();
+  
+  // Find current aquisitive period
+  let aquisitivoInicio = new Date(admissionDate);
+  while (aquisitivoInicio < hoje) {
+    const nextYear = new Date(aquisitivoInicio);
+    nextYear.setFullYear(nextYear.getFullYear() + 1);
+    if (nextYear > hoje) break;
+    aquisitivoInicio = nextYear;
+  }
+  
+  const aquisitivoFim = new Date(aquisitivoInicio);
+  aquisitivoFim.setFullYear(aquisitivoFim.getFullYear() + 1);
+  aquisitivoFim.setDate(aquisitivoFim.getDate() - 1);
+  
+  const concessivoInicio = new Date(aquisitivoFim);
+  concessivoInicio.setDate(concessivoInicio.getDate() + 1);
+  
+  const concessivoFim = new Date(concessivoInicio);
+  concessivoFim.setFullYear(concessivoFim.getFullYear() + 1);
+  concessivoFim.setDate(concessivoFim.getDate() - 1);
+  
+  return {
+    aquisitivo: {
+      inicio: aquisitivoInicio.toISOString().split("T")[0],
+      fim: aquisitivoFim.toISOString().split("T")[0],
+    },
+    concessivo: {
+      inicio: concessivoInicio.toISOString().split("T")[0],
+      fim: concessivoFim.toISOString().split("T")[0],
+    },
+  };
 }

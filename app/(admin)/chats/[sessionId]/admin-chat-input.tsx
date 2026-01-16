@@ -63,7 +63,7 @@ export function AdminChatInput({ sessionId }: AdminChatInputProps) {
   };
 
   return (
-    <div className="border-t border-slate-200/50 bg-white p-4">
+    <div className="border-t border-slate-200/50 dark:border-white/10 bg-white dark:bg-slate-900 p-4">
       <form
         onSubmit={handleSubmit}
         className="max-w-2xl mx-auto flex items-end gap-3"
@@ -77,10 +77,10 @@ export function AdminChatInput({ sessionId }: AdminChatInputProps) {
             placeholder="Responder como especialista..."
             rows={1}
             className={cn(
-              "w-full px-4 py-3 bg-slate-50 rounded-lg resize-none",
-              "text-sm placeholder:text-muted-foreground",
-              "focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:bg-white",
-              "border border-slate-200/50",
+              "w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-lg resize-none",
+              "text-sm placeholder:text-muted-foreground dark:text-slate-200 dark:placeholder:text-slate-500",
+              "focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:bg-white dark:focus:bg-slate-900",
+              "border border-slate-200/50 dark:border-white/10",
               "transition-all duration-150",
               "min-h-[44px] max-h-[120px]"
             )}

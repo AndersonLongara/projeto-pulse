@@ -34,13 +34,13 @@ export default async function AdminChatsPage() {
   const waiting = sessions.filter((s) => s.status === "WAITING_HUMAN").length;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-white border-b border-slate-200/50">
+      <header className="sticky top-0 z-10 bg-white dark:bg-slate-900 border-b border-slate-200/50 dark:border-white/10">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-lg font-semibold tracking-tight text-foreground">
+              <h1 className="text-lg font-semibold tracking-tight text-foreground dark:text-slate-50">
                 Torre de Controle
               </h1>
               <p className="text-sm text-muted-foreground">
@@ -59,11 +59,11 @@ export default async function AdminChatsPage() {
       <main className="p-6">
         {/* Stats Cards */}
         <div className="grid grid-cols-3 gap-4 mb-6">
-          <Card className="border-[0.5px] border-slate-200/50">
+          <Card className="border-[0.5px] border-slate-200/50 dark:border-white/10 dark:bg-slate-900">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-                  <Robot className="w-5 h-5 text-emerald-600" weight="duotone" />
+                <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center">
+                  <Robot className="w-5 h-5 text-emerald-600 dark:text-emerald-400" weight="duotone" />
                 </div>
                 <div>
                   <p className="text-2xl font-semibold font-mono tabular-nums">
@@ -77,11 +77,11 @@ export default async function AdminChatsPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-[0.5px] border-slate-200/50">
+          <Card className="border-[0.5px] border-slate-200/50 dark:border-white/10 dark:bg-slate-900">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
-                  <UserCircle className="w-5 h-5 text-amber-600" weight="duotone" />
+                <div className="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center">
+                  <UserCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" weight="duotone" />
                 </div>
                 <div>
                   <p className="text-2xl font-semibold font-mono tabular-nums">
@@ -95,11 +95,11 @@ export default async function AdminChatsPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-[0.5px] border-slate-200/50">
+          <Card className="border-[0.5px] border-slate-200/50 dark:border-white/10 dark:bg-slate-900">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
-                  <ChatCircleDots className="w-5 h-5 text-blue-600" weight="duotone" />
+                <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
+                  <ChatCircleDots className="w-5 h-5 text-blue-600 dark:text-blue-400" weight="duotone" />
                 </div>
                 <div>
                   <p className="text-2xl font-semibold font-mono tabular-nums">
@@ -116,17 +116,17 @@ export default async function AdminChatsPage() {
 
         {/* Search */}
         <div className="relative mb-4">
-          <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground dark:text-slate-500" />
           <Input
             placeholder="Buscar por colaborador..."
-            className="pl-10 h-10 border-[0.5px] border-slate-200/50"
+            className="pl-10 h-10 border-[0.5px] border-slate-200/50 dark:border-white/10 dark:bg-slate-900"
           />
         </div>
 
         {/* Sessions List */}
-        <Card className="border-[0.5px] border-slate-200/50">
+        <Card className="border-[0.5px] border-slate-200/50 dark:border-white/10 dark:bg-slate-900">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">
+            <CardTitle className="text-sm font-medium dark:text-slate-50">
               Conversas Ativas
             </CardTitle>
           </CardHeader>
@@ -140,16 +140,16 @@ export default async function AdminChatsPage() {
                   </p>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-slate-100 dark:divide-white/5">
                   {sessions.map((chatSession) => (
                     <Link
                       key={chatSession.id}
                       href={`/chats/${chatSession.id}`}
-                      className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors duration-150"
+                      className="flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors duration-150"
                     >
                       {/* Avatar */}
-                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm font-medium text-slate-600">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
                           {chatSession.user.nome
                             .split(" ")
                             .map((n) => n[0])
@@ -161,20 +161,20 @@ export default async function AdminChatsPage() {
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <p className="font-medium text-sm truncate">
+                          <p className="font-medium text-sm truncate dark:text-slate-200">
                             {chatSession.user.nome}
                           </p>
                           <StatusBadge status={chatSession.status} />
                         </div>
-                        <p className="text-xs text-muted-foreground truncate">
+                        <p className="text-xs text-muted-foreground dark:text-slate-400 truncate">
                           {chatSession.titulo || "Nova conversa"}
                         </p>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] font-mono text-muted-foreground">
+                          <span className="text-[10px] font-mono text-muted-foreground dark:text-slate-400">
                             {chatSession.user.departamento}
                           </span>
-                          <span className="text-muted-foreground">•</span>
-                          <span className="text-[10px] font-mono text-muted-foreground tabular-nums">
+                          <span className="text-muted-foreground dark:text-slate-500">•</span>
+                          <span className="text-[10px] font-mono text-muted-foreground dark:text-slate-400 tabular-nums">
                             {chatSession._count?.messages || 0} msgs
                           </span>
                         </div>
@@ -206,19 +206,19 @@ function StatusBadge({ status }: { status: string }) {
   const config = {
     ACTIVE_IA: {
       label: "IA",
-      className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      className: "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50",
     },
     HUMAN_INTERVENTION: {
       label: "Humano",
-      className: "bg-amber-50 text-amber-700 border-amber-200",
+      className: "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/50",
     },
     WAITING_HUMAN: {
       label: "Aguardando",
-      className: "bg-blue-50 text-blue-700 border-blue-200",
+      className: "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800/50",
     },
   }[status] || {
     label: status,
-    className: "bg-slate-50 text-slate-700 border-slate-200",
+    className: "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700",
   };
 
   return (

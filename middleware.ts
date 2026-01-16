@@ -76,14 +76,18 @@ export async function middleware(request: NextRequest) {
 
   const response = NextResponse.next();
 
-  // Content Security Policy
+  // Get the app domain for CSP (supports Vercel preview URLs)
+  const appDomain = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const vercelDomain = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "";
+  
+  // Content Security Policy (production-ready)
   const cspHeader = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' blob: data: https:",
     "font-src 'self' data:",
-    "connect-src 'self' https:",
+    `connect-src 'self' https: wss: ${appDomain} ${vercelDomain} https://openrouter.ai https://*.vercel.app`,
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

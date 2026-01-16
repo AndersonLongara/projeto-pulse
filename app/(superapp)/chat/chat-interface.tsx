@@ -148,9 +148,9 @@ export function ChatInterface({
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <Robot className="w-4 h-4 text-primary" weight="duotone" />
               </div>
-              <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04),_0_4px_8px_rgba(0,0,0,0.02)]">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl rounded-tl-sm px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04),_0_4px_8px_rgba(0,0,0,0.02)] dark:shadow-none dark:border dark:border-white/10">
                 <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                  <span className="w-2 h-2 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
                   <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
                   <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" />
                 </div>
@@ -172,7 +172,7 @@ export function ChatInterface({
       </ScrollArea>
 
       {/* Input Area */}
-      <div className="flex-none px-4 py-3 bg-white border-t border-slate-100 safe-area-bottom">
+      <div className="flex-none px-4 py-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-white/10 safe-area-bottom">
         <form
           onSubmit={handleSubmit}
           className="max-w-lg mx-auto flex items-end gap-2"
@@ -186,9 +186,9 @@ export function ChatInterface({
               placeholder="Digite sua mensagem..."
               rows={1}
               className={cn(
-                "w-full px-4 py-3 pr-12 bg-slate-50 rounded-2xl resize-none",
-                "text-sm placeholder:text-muted-foreground",
-                "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white",
+                "w-full px-4 py-3 pr-12 bg-slate-50 dark:bg-slate-800 rounded-2xl resize-none",
+                "text-sm placeholder:text-muted-foreground dark:text-slate-50",
+                "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white dark:focus:bg-slate-800",
                 "transition-all duration-150",
                 "min-h-[44px] max-h-[120px]"
               )}
@@ -239,13 +239,13 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         className={cn(
           "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
           isUser && "bg-primary",
-          isAI && "bg-primary/10",
-          isAdmin && "bg-amber-100"
+          isAI && "bg-primary/10 dark:bg-primary/20",
+          isAdmin && "bg-amber-100 dark:bg-amber-900/30"
         )}
       >
         {isUser && <User className="w-4 h-4 text-primary-foreground" weight="bold" />}
         {isAI && <Robot className="w-4 h-4 text-primary" weight="duotone" />}
-        {isAdmin && <UserCircle className="w-4 h-4 text-amber-600" weight="duotone" />}
+        {isAdmin && <UserCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" weight="duotone" />}
       </div>
 
       {/* Bubble */}
@@ -254,13 +254,13 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           "max-w-[80%] rounded-2xl px-4 py-3",
           "transition-all duration-150",
           isUser && "bg-primary text-primary-foreground rounded-tr-sm",
-          isAI && "bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),_0_4px_8px_rgba(0,0,0,0.02)] rounded-tl-sm",
-          isAdmin && "bg-amber-50 border border-amber-200 rounded-tl-sm"
+          isAI && "bg-white dark:bg-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.04),_0_4px_8px_rgba(0,0,0,0.02)] dark:shadow-none dark:border dark:border-white/10 rounded-tl-sm",
+          isAdmin && "bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 rounded-tl-sm"
         )}
       >
         {/* Admin label */}
         {isAdmin && message.sender && (
-          <p className="text-xs font-medium text-amber-700 mb-1">
+          <p className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-1">
             {message.sender.nome}
           </p>
         )}
@@ -270,7 +270,9 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           className={cn(
             "text-sm whitespace-pre-wrap break-words",
             "[&_strong]:font-semibold",
-            isUser ? "text-primary-foreground" : "text-foreground"
+            isUser && "text-primary-foreground",
+            isAI && "text-foreground dark:text-slate-50",
+            isAdmin && "text-foreground dark:text-slate-50"
           )}
         >
           {formatMessage(message.content)}
@@ -297,11 +299,74 @@ function MessageBubble({ message }: { message: ChatMessage }) {
  * Simple markdown-like formatting
  */
 function formatMessage(content: string) {
-  // Split by double newline for paragraphs
+  // Check if content has table format
+  if (content.includes("|") && content.includes("Descrição")) {
+    const lines = content.split("\n");
+    const beforeTable: string[] = [];
+    const tableLines: string[] = [];
+    const afterTable: string[] = [];
+    
+    let inTable = false;
+    
+    lines.forEach((line) => {
+      if (line.trim().startsWith("|")) {
+        inTable = true;
+        tableLines.push(line);
+      } else if (inTable) {
+        afterTable.push(line);
+      } else {
+        beforeTable.push(line);
+      }
+    });
+    
+    return (
+      <>
+        {beforeTable.map((line, i) => {
+          const formatted = line.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+          return (
+            <span
+              key={`before-${i}`}
+              dangerouslySetInnerHTML={{ __html: formatted }}
+              className="block"
+            />
+          );
+        })}
+        
+        {tableLines.length > 0 && (
+          <div className="my-3 text-xs font-mono space-y-1.5">
+            {tableLines.slice(1).map((line, i) => {
+              const cells = line.split("|").filter(c => c.trim());
+              if (cells.length >= 3) {
+                return (
+                  <div key={`table-${i}`} className="flex justify-between items-center py-1 border-b border-slate-200 dark:border-slate-700 last:border-0">
+                    <span className="text-slate-600 dark:text-slate-400">{cells[0].trim()}</span>
+                    <span className="text-slate-500 dark:text-slate-500 text-[10px]">{cells[1].trim()}</span>
+                    <span className="font-semibold text-foreground dark:text-slate-50">{cells[2].replace(/\*\*/g, "").trim()}</span>
+                  </div>
+                );
+              }
+              return null;
+            })}
+          </div>
+        )}
+        
+        {afterTable.map((line, i) => {
+          const formatted = line.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+          return (
+            <span
+              key={`after-${i}`}
+              dangerouslySetInnerHTML={{ __html: formatted }}
+              className="block"
+            />
+          );
+        })}
+      </>
+    );
+  }
+  
+  // Regular formatting for non-table content
   return content.split("\n").map((line, i) => {
-    // Bold text
     const formatted = line.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-
     return (
       <span
         key={i}

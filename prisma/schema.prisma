@@ -1,14 +1,17 @@
 // Prisma Schema - Pulse IA
-// Database: SQLite (MVP)
+// Database: PostgreSQL (Production) / SQLite (Development)
 // @see .github/agents/Master.agent.md
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../node_modules/.prisma/client"
 }
 
+// Use PostgreSQL for production (Vercel, Supabase, Neon)
+// For local development with SQLite, change provider to "sqlite"
 datasource db {
-  provider = "sqlite"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ===========================================
@@ -28,6 +31,7 @@ model User {
   ativo         Boolean   @default(true)
   dataAdmissao  DateTime?
   avatarUrl     String?
+  theme         String    @default("system") // system, light, dark
   
   // Relations
   chatSessions     ChatSession[]

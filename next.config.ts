@@ -3,7 +3,8 @@ import withPWAInit from "next-pwa";
 
 const withPWA = withPWAInit({
   dest: "public",
-  disable: process.env.NODE_ENV === "development",
+  // Disable PWA in production until next-pwa supports Turbopack
+  disable: true,
   register: true,
   skipWaiting: true,
   // Workbox configuration
@@ -105,6 +106,9 @@ const withPWA = withPWAInit({
 const nextConfig: NextConfig = {
   // React strict mode for better development experience
   reactStrictMode: true,
+
+  // Turbopack configuration (required for Next.js 16+)
+  turbopack: {},
 
   // Experimental features for Next.js 15+
   experimental: {

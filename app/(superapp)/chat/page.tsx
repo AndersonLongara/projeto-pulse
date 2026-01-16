@@ -2,7 +2,7 @@
  * SuperApp Chat Page
  *
  * Mobile-first chat interface with warm, approachable design.
- * Layered shadows, welcoming bubbles, touch-optimized.
+ * AI streaming powered by Vercel AI SDK + OpenRouter (Gemini).
  *
  * @see .github/agents/Master.agent.md - Section 2.3 (Warmth & Approachability)
  */
@@ -10,7 +10,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { getOrCreateSession } from "@/lib/actions/chat";
-import { ChatInterface } from "./chat-interface";
+import { ChatInterface } from "./chat-interface-streaming";
 
 export default async function ChatPage() {
   const session = await getSession();
@@ -22,9 +22,9 @@ export default async function ChatPage() {
   const chatSession = await getOrCreateSession();
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-gradient-to-b from-slate-50 to-white">
-      {/* Header */}
-      <header className="flex-none px-4 py-3 bg-white/80 backdrop-blur-sm border-b border-slate-100 safe-area-top">
+    <div className="flex flex-col h-[100dvh] lg:h-auto bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900 lg:bg-none">
+      {/* Header - Hidden on desktop (already in layout) */}
+      <header className="lg:hidden flex-none px-4 py-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-100 dark:border-white/10 safe-area-top">
         <div className="flex items-center justify-between max-w-lg mx-auto">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">

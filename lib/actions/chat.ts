@@ -223,13 +223,29 @@ async function generateAIResponse(sessionId: string, userMessage: string) {
       "📋 **Solicitar férias:** Posso iniciar uma solicitação para você\n" +
       "❓ **Dúvidas:** Responder perguntas sobre o período concessivo\n\n" +
       "O que você gostaria de fazer?";
-  } else if (lowerMessage.includes("holerite") || lowerMessage.includes("salário") || lowerMessage.includes("salario")) {
+  } else if (lowerMessage.includes("holerite") || lowerMessage.includes("salário") || lowerMessage.includes("salario") || lowerMessage.includes("ganho")) {
+    const chatSession = await prisma.chatSession.findUnique({
+      where: { id: sessionId },
+      include: { user: true },
+    });
+
     aiResponse =
-      "Sobre seu holerite, posso informar:\n\n" +
-      "💰 **Último holerite:** Dezembro/2025\n" +
-      "📊 **Salário líquido:** R$ 5.432,10\n" +
-      "📥 **Download:** Posso enviar o PDF do seu holerite\n\n" +
-      "Qual informação você precisa?";
+      "Olá, " + (chatSession?.user?.nome?.split(" ")[0] || "Maria") + "! Para te ajudar com seu último ganho, preciso que você me diga a qual mês você se refere.\n\n" +
+      "Você gostaria de saber sobre o seu último salário (referente a dezembro de 2025), ou algum outro período? 💰";
+    
+    // Se mencionar especificamente dezembro ou último
+    if (lowerMessage.includes("dezembro") || lowerMessage.includes("ultimo") || lowerMessage.includes("último")) {
+      aiResponse =
+        "Entendido, " + (chatSession?.user?.nome?.split(" ")[0] || "Maria") + "! Seu salário de dezembro de 2025 teve os seguintes detalhes:\n\n" +
+        "**Salário bruto:** R$ 8.500,04 de janeiro de 2026\n\n" +
+        "Os descontos foram:\n\n" +
+        "| Descrição | Referência | Valor |\n" +
+        "| INSS | 14% | **R$ 828,38** |\n" +
+        "| Imposto de Renda Retido | 27,5% | **R$ 1.696,27** |\n" +
+        "| Vale Transporte | 6% | **R$ 510,00** |\n" +
+        "| Plano de Saúde (Titular) | -- | **R$ 350,00** |\n\n" +
+        "Se precisar de mais detalhes sobre algum item, é só me dizer! 😊";
+    }
   } else if (lowerMessage.includes("ponto") || lowerMessage.includes("hora")) {
     aiResponse =
       "Sobre seu ponto eletrônico:\n\n" +

@@ -6,36 +6,51 @@
  * Run with: npx tsx prisma/seed.ts
  */
 
+import { PrismaClient } from "@prisma/client";
 import { hash } from "bcryptjs";
-import { createClient } from "@libsql/client";
+
+const prisma = new PrismaClient();
 
 async function main() {
-  const client = createClient({ url: "file:./prisma/dev.db" });
-
   console.log("🌱 Seeding database...\n");
 
   // Hash passwords
   const adminPassword = await hash("admin123", 12);
   const userPassword = await hash("user123", 12);
 
-  // Helper to generate CUID-like IDs
-  const genId = () => `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 9)}`;
-
   // Insert Super Admin
-  const superAdminId = genId();
-  await client.execute({
-    sql: `INSERT OR REPLACE INTO users (id, matricula, email, nome, passwordHash, role, cargo, departamento, ativo, createdAt, updatedAt)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
-    args: [superAdminId, "00001", "super@pulse.com", "Super Administrador", adminPassword, "SUPER_ADMIN", "Diretor de RH", "Diretoria", 1],
+  await prisma.user.upsert({
+    where: { email: "super@pulse.com" },
+    update: {},
+    create: {
+      matricula: "00001",
+      email: "super@pulse.com",
+      nome: "Super Administrador",
+      passwordHash: adminPassword,
+      role: "SUPER_ADMIN",
+      cargo: "Diretor de RH",
+      departamento: "Diretoria",
+      ativo: true,
+      theme: "system",
+    },
   });
   console.log("✅ Super Admin: super@pulse.com");
 
   // Insert Admin
-  const adminId = genId();
-  await client.execute({
-    sql: `INSERT OR REPLACE INTO users (id, matricula, email, nome, passwordHash, role, cargo, departamento, ativo, createdAt, updatedAt)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
-    args: [adminId, "00002", "admin@pulse.com", "Administrador RH", adminPassword, "ADMIN", "Coordenador de RH", "Recursos Humanos", 1],
+  await prisma.user.upsert({
+    where: { email: "admin@pulse.com" },
+    update: {},
+    create: {
+      matricula: "00002",
+      email: "admin@pulse.com",
+      nome: "Administrador RH",
+      passwordHash: adminPassword,
+      role: "ADMIN",
+      cargo: "Coordenador de RH",
+      departamento: "Recursos Humanos",
+      ativo: true,
+      theme: "system",
+    },
   });
   console.log("✅ Admin: admin@pulse.com");
 
@@ -45,51 +60,74 @@ async function main() {
     { matricula: "12346", email: "joao@pulse.com", nome: "João Pedro Oliveira", cargo: "Desenvolvedor Full Stack", departamento: "Tecnologia" },
     { matricula: "12347", email: "ana@pulse.com", nome: "Ana Carolina Ferreira", cargo: "Designer UX/UI", departamento: "Produto" },
   ];
-
-  const mariaId = genId();
-  for (let i = 0; i < users.length; i++) {
-    const u = users[i];
-    const id = i === 0 ? mariaId : genId();
-    await client.execute({
-      sql: `INSERT OR REPLACE INTO users (id, matricula, email, nome, passwordHash, role, cargo, departamento, ativo, createdAt, updatedAt)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
-      args: [id, u.matricula, u.email, u.nome, userPassword, "USER", u.cargo, u.departamento, 1],
+  for (const u of users) {
+    await prisma.user.upsert({
+      where: { email: u.email },
+      update: {},
+      create: {
+        matricula: u.matricula,
+        email: u.email,
+        nome: u.nome,
+        passwordHash: userPassword,
+        role: "USER",
+        cargo: u.cargo,
+        departamento: u.departamento,
+        ativo: true,
+        theme: "system",
+      },
     });
     console.log(`✅ User: ${u.email}`);
   }
 
+  // Get Maria's ID for chat session
+  const maria = await prisma.user.findUnique({
+    where: { email: "maria@pulse.com" },
+  });
+
+  if (!maria) {
+    throw new Error("Maria not found");
+  }
+
   // Create sample chat session for Maria
-  const sessionId = "demo-session-001";
-  await client.execute({
-    sql: `INSERT OR REPLACE INTO chat_sessions (id, userId, titulo, status, createdAt, updatedAt)
-          VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))`,
-    args: [sessionId, mariaId, "Consulta sobre férias", "ACTIVE_IA"],
+  const session = await prisma.chatSession.upsert({
+    where: { id: "demo-session-001" },
+    update: {},
+    create: {
+      id: "demo-session-001",
+      userId: maria.id,
+      titulo: "Consulta sobre férias",
+      status: "ACTIVE_IA",
+    },
   });
 
   // Add sample messages
   const messages = [
-    { senderType: "USER", senderId: mariaId, content: "Oi! Quero saber quantos dias de férias eu tenho disponíveis." },
-    { senderType: "AI", senderId: null, content: "Olá, Maria! 👋 Consultando seu saldo de férias...\n\nVocê tem **20 dias** de férias disponíveis no período aquisitivo atual (2025-2026).\n\nPosso te ajudar a agendar suas férias?" },
-    { senderType: "USER", senderId: mariaId, content: "Sim! Quero tirar 10 dias em março." },
-    { senderType: "AI", senderId: null, content: "Ótimo! Para agendar 10 dias em março de 2026, preciso de algumas informações:\n\n1. **Data de início:** Qual dia de março você prefere iniciar?\n2. **Abono pecuniário:** Deseja vender algum dia?\n\nLembrando que o período mínimo é de 5 dias consecutivos. 📅" },
+    { senderType: "USER" as const, senderId: maria.id, content: "Oi! Quero saber quantos dias de férias eu tenho disponíveis." },
+    { senderType: "AI" as const, senderId: null, content: "Olá, Maria! 👋 Consultando seu saldo de férias...\n\nVocê tem **20 dias** de férias disponíveis no período aquisitivo atual (2025-2026).\n\nPosso te ajudar a agendar suas férias?" },
+    { senderType: "USER" as const, senderId: maria.id, content: "Sim! Quero tirar 10 dias em março." },
+    { senderType: "AI" as const, senderId: null, content: "Ótimo! Para agendar 10 dias em março de 2026, preciso de algumas informações:\n\n1. **Data de início:** Qual dia de março você prefere iniciar?\n2. **Abono pecuniário:** Deseja vender algum dia?\n\nLembrando que o período mínimo é de 5 dias consecutivos. 📅" },
   ];
 
   for (const msg of messages) {
-    const msgId = genId();
-    await client.execute({
-      sql: `INSERT INTO chat_messages (id, sessionId, senderType, senderId, content, createdAt)
-            VALUES (?, ?, ?, ?, ?, datetime('now'))`,
-      args: [msgId, sessionId, msg.senderType, msg.senderId, msg.content],
+    await prisma.chatMessage.create({
+      data: {
+        sessionId: session.id,
+        senderType: msg.senderType,
+        senderId: msg.senderId,
+        content: msg.content,
+      },
     });
   }
   console.log("✅ Demo chat session created for Maria");
 
   console.log("\n🎉 Seed completed successfully!");
-  
-  client.close();
 }
 
-main().catch((e) => {
-  console.error("❌ Seed error:", e);
-  process.exit(1);
-});
+main()
+  .catch((e) => {
+    console.error("❌ Seed error:", e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

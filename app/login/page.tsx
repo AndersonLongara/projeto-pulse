@@ -35,8 +35,8 @@ export default function LoginPage() {
   }, [state.success, router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 p-4">
-      <Card className="w-full max-w-sm shadow-[0_1px_2px_rgba(0,0,0,0.04),_0_4px_8px_rgba(0,0,0,0.02)]">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950 p-4">
+      <Card className="w-full max-w-sm shadow-[0_1px_2px_rgba(0,0,0,0.04),_0_4px_8px_rgba(0,0,0,0.02)] dark:bg-slate-900 dark:border-white/10">
         <CardHeader className="space-y-3 text-center pb-6">
           {/* Logo */}
           <div className="mx-auto w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
@@ -63,7 +63,7 @@ export default function LoginPage() {
 
             {/* Email Field */}
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
+              <label htmlFor="email" className="text-sm font-medium dark:text-slate-200">
                 Email
               </label>
               <Input
@@ -80,7 +80,7 @@ export default function LoginPage() {
 
             {/* Password Field */}
             <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
+              <label htmlFor="password" className="text-sm font-medium dark:text-slate-200">
                 Senha
               </label>
               <Input

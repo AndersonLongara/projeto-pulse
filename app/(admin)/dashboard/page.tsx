@@ -38,14 +38,14 @@ export default async function AdminDashboardPage() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-white border-b border-slate-200/50">
+      <header className="sticky top-0 z-10 bg-white dark:bg-slate-900 border-b border-slate-200/50 dark:border-white/10">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-lg font-semibold tracking-tight text-foreground">
+              <h1 className="text-lg font-semibold tracking-tight text-foreground dark:text-slate-50">
                 Dashboard
               </h1>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground dark:text-slate-400">
                 Bem-vindo, {session.nome}
               </p>
             </div>
@@ -62,20 +62,20 @@ export default async function AdminDashboardPage() {
       <main className="p-6">
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Card className="border-[0.5px] border-slate-200/50">
+          <Card className="border-[0.5px] border-slate-200/50 dark:border-white/10 dark:bg-slate-900">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
                   <ChatCircleDots
-                    className="w-5 h-5 text-blue-600"
+                    className="w-5 h-5 text-blue-600 dark:text-blue-400"
                     weight="duotone"
                   />
                 </div>
                 <div>
-                  <p className="text-2xl font-semibold font-mono tabular-nums">
+                  <p className="text-2xl font-semibold font-mono tabular-nums dark:text-slate-50">
                     {sessions.length}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground dark:text-slate-400">
                     Conversas Ativas
                   </p>
                 </div>
@@ -83,20 +83,20 @@ export default async function AdminDashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-[0.5px] border-slate-200/50">
+          <Card className="border-[0.5px] border-slate-200/50 dark:border-white/10 dark:bg-slate-900">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center">
                   <Robot
-                    className="w-5 h-5 text-emerald-600"
+                    className="w-5 h-5 text-emerald-600 dark:text-emerald-400"
                     weight="duotone"
                   />
                 </div>
                 <div>
-                  <p className="text-2xl font-semibold font-mono tabular-nums">
+                  <p className="text-2xl font-semibold font-mono tabular-nums dark:text-slate-50">
                     {activeIA}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground dark:text-slate-400">
                     Atendimento IA
                   </p>
                 </div>
@@ -104,20 +104,20 @@ export default async function AdminDashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-[0.5px] border-slate-200/50">
+          <Card className="border-[0.5px] border-slate-200/50 dark:border-white/10 dark:bg-slate-900">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center">
                   <UserCircle
-                    className="w-5 h-5 text-amber-600"
+                    className="w-5 h-5 text-amber-600 dark:text-amber-400"
                     weight="duotone"
                   />
                 </div>
                 <div>
-                  <p className="text-2xl font-semibold font-mono tabular-nums">
+                  <p className="text-2xl font-semibold font-mono tabular-nums dark:text-slate-50">
                     {humanIntervention}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground dark:text-slate-400">
                     Intervenção Humana
                   </p>
                 </div>
@@ -125,17 +125,17 @@ export default async function AdminDashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-[0.5px] border-slate-200/50">
+          <Card className="border-[0.5px] border-slate-200/50 dark:border-white/10 dark:bg-slate-900">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
-                  <Users className="w-5 h-5 text-purple-600" weight="duotone" />
+                <div className="w-10 h-10 rounded-lg bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center">
+                  <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" weight="duotone" />
                 </div>
                 <div>
-                  <p className="text-2xl font-semibold font-mono tabular-nums">
+                  <p className="text-2xl font-semibold font-mono tabular-nums dark:text-slate-50">
                     {totalUsers}
                   </p>
-                  <p className="text-xs text-muted-foreground">Colaboradores</p>
+                  <p className="text-xs text-muted-foreground dark:text-slate-400">Colaboradores</p>
                 </div>
               </div>
             </CardContent>
@@ -145,9 +145,9 @@ export default async function AdminDashboardPage() {
         {/* Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Recent Conversations */}
-          <Card className="border-[0.5px] border-slate-200/50">
+          <Card className="border-[0.5px] border-slate-200/50 dark:border-white/10 dark:bg-slate-900">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
+              <CardTitle className="text-sm font-medium dark:text-slate-50">
                 Conversas Recentes
               </CardTitle>
               <Link href="/chats">
@@ -168,10 +168,10 @@ export default async function AdminDashboardPage() {
                     <Link
                       key={chatSession.id}
                       href={`/chats/${chatSession.id}`}
-                      className="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-slate-50 transition-colors"
+                      className="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                     >
-                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
-                        <span className="text-xs font-medium text-slate-600">
+                      <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
                           {chatSession.user.nome
                             .split(" ")
                             .map((n) => n[0])
@@ -180,14 +180,14 @@ export default async function AdminDashboardPage() {
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
+                        <p className="text-sm font-medium truncate dark:text-slate-200">
                           {chatSession.user.nome}
                         </p>
-                        <p className="text-xs text-muted-foreground truncate">
+                        <p className="text-xs text-muted-foreground dark:text-slate-400 truncate">
                           {chatSession.titulo || "Nova conversa"}
                         </p>
                       </div>
-                      <span className="text-[10px] font-mono text-muted-foreground">
+                      <span className="text-[10px] font-mono text-muted-foreground dark:text-slate-400">
                         {new Date(chatSession.updatedAt).toLocaleTimeString(
                           "pt-BR",
                           {
@@ -204,41 +204,41 @@ export default async function AdminDashboardPage() {
           </Card>
 
           {/* System Info */}
-          <Card className="border-[0.5px] border-slate-200/50">
+          <Card className="border-[0.5px] border-slate-200/50 dark:border-white/10 dark:bg-slate-900">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">
+              <CardTitle className="text-sm font-medium dark:text-slate-50">
                 Informações do Sistema
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between py-2 border-b border-slate-100">
-                <span className="text-sm text-muted-foreground">
+              <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-white/5">
+                <span className="text-sm text-muted-foreground dark:text-slate-400">
                   Total de Mensagens
                 </span>
-                <span className="font-mono tabular-nums text-sm">
+                <span className="font-mono tabular-nums text-sm dark:text-slate-300">
                   {totalMessages}
                 </span>
               </div>
-              <div className="flex items-center justify-between py-2 border-b border-slate-100">
-                <span className="text-sm text-muted-foreground">
+              <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-white/5">
+                <span className="text-sm text-muted-foreground dark:text-slate-400">
                   Colaboradores Cadastrados
                 </span>
-                <span className="font-mono tabular-nums text-sm">
+                <span className="font-mono tabular-nums text-sm dark:text-slate-300">
                   {totalUsers}
                 </span>
               </div>
-              <div className="flex items-center justify-between py-2 border-b border-slate-100">
-                <span className="text-sm text-muted-foreground">
+              <div className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-white/5">
+                <span className="text-sm text-muted-foreground dark:text-slate-400">
                   Status do Sistema
                 </span>
-                <span className="inline-flex items-center gap-1.5 text-sm text-emerald-600">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="inline-flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400" />
                   Operacional
                 </span>
               </div>
               <div className="flex items-center justify-between py-2">
-                <span className="text-sm text-muted-foreground">Versão</span>
-                <span className="font-mono text-sm">v0.1.0-alpha</span>
+                <span className="text-sm text-muted-foreground dark:text-slate-400">Versão</span>
+                <span className="font-mono text-sm dark:text-slate-300">v0.1.0-alpha</span>
               </div>
             </CardContent>
           </Card>
