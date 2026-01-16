@@ -24,6 +24,7 @@ import {
 import { getSession } from "@/lib/auth";
 import { getBenefits } from "@/lib/services/senior-mock";
 import type { BenefitType } from "@/lib/services/senior-mock";
+import { MoneyDisplay } from "@/components/ui/money-display";
 
 // Format currency in BRL
 function formatCurrency(value: number) {
@@ -98,8 +99,8 @@ export default async function BeneficiosPage() {
           </div>
           <div>
             <p className="text-sm text-violet-700/80 dark:text-violet-400/80">Total em Benefícios</p>
-            <p className="text-2xl font-semibold font-mono tabular-nums text-violet-900 dark:text-violet-200">
-              {formatCurrency(totalMensal)}
+            <p className="text-2xl font-semibold text-violet-900 dark:text-violet-200">
+              <MoneyDisplay value={totalMensal} />
             </p>
           </div>
         </div>
@@ -107,14 +108,14 @@ export default async function BeneficiosPage() {
         <div className="grid grid-cols-2 gap-4 pt-3 border-t border-violet-200/50">
           <div>
             <p className="text-xs text-violet-700/70">Empresa paga</p>
-            <p className="text-sm font-semibold font-mono tabular-nums text-violet-900">
-              {formatCurrency(totalMensal - totalDesconto)}
+            <p className="text-sm font-semibold text-violet-900">
+              <MoneyDisplay value={totalMensal - totalDesconto} />
             </p>
           </div>
           <div>
             <p className="text-xs text-violet-700/70">Você paga</p>
-            <p className="text-sm font-semibold font-mono tabular-nums text-violet-900">
-              {formatCurrency(totalDesconto)}
+            <p className="text-sm font-semibold text-violet-900">
+              <MoneyDisplay value={totalDesconto} />
             </p>
           </div>
         </div>
@@ -161,14 +162,14 @@ export default async function BeneficiosPage() {
                 <div className="mt-4 pt-3 border-t border-slate-100 dark:border-white/10 grid grid-cols-3 gap-4">
                   <div>
                     <p className="text-xs text-muted-foreground">Valor</p>
-                    <p className="text-sm font-semibold font-mono tabular-nums text-foreground">
-                      {formatCurrency(benefit.valor)}
+                    <p className="text-sm font-semibold text-foreground">
+                      <MoneyDisplay value={benefit.valor} />
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Desconto</p>
-                    <p className="text-sm font-semibold font-mono tabular-nums text-rose-600">
-                      {formatCurrency(benefit.valorDesconto)}
+                    <p className="text-sm font-semibold text-rose-600">
+                      <MoneyDisplay value={benefit.valorDesconto} />
                     </p>
                   </div>
                   <div>

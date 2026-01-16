@@ -23,6 +23,7 @@ import {
   getClockEvents,
   getBenefits,
 } from "@/lib/services/senior-mock";
+import { MoneyDisplay } from "@/components/ui/money-display";
 
 // Card container with standardized styles
 function DashboardCard({
@@ -196,9 +197,9 @@ export default async function SuperAppHomePage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground dark:text-slate-400">Último Salário</p>
-                <p className="text-xl font-semibold font-mono tabular-nums text-foreground dark:text-slate-50">
+                <p className="text-xl font-semibold text-foreground dark:text-slate-50">
                   {ultimoHolerite
-                    ? formatCurrency(ultimoHolerite.salarioLiquido)
+                    ? <MoneyDisplay value={ultimoHolerite.salarioLiquido} />
                     : "—"}
                 </p>
               </div>
