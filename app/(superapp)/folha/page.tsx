@@ -18,6 +18,7 @@ import {
 } from "@phosphor-icons/react/dist/ssr";
 import { getSession } from "@/lib/auth";
 import { getPayslips } from "@/lib/services/senior-mock";
+import { MoneyDisplay } from "@/components/ui/money-display";
 
 // Format currency in BRL
 function formatCurrency(value: number) {
@@ -72,8 +73,8 @@ export default async function FolhaPage() {
             </div>
             <div>
               <p className="text-sm text-amber-700/80 dark:text-amber-400/80">Último Salário Líquido</p>
-              <p className="text-2xl font-semibold font-mono tabular-nums text-amber-900 dark:text-amber-200">
-                {formatCurrency(ultimoHolerite.salarioLiquido)}
+              <p className="text-2xl font-semibold text-amber-900 dark:text-amber-200">
+                <MoneyDisplay value={ultimoHolerite.salarioLiquido} />
               </p>
             </div>
           </div>
@@ -83,8 +84,8 @@ export default async function FolhaPage() {
               <TrendUp className="w-4 h-4 text-emerald-600" />
               <div>
                 <p className="text-xs text-amber-700/70">Proventos</p>
-                <p className="text-sm font-semibold font-mono tabular-nums text-amber-900">
-                  {formatCurrency(ultimoHolerite.totalProventos)}
+                <p className="text-sm font-semibold text-amber-900">
+                  <MoneyDisplay value={ultimoHolerite.totalProventos} />
                 </p>
               </div>
             </div>
@@ -92,8 +93,8 @@ export default async function FolhaPage() {
               <TrendDown className="w-4 h-4 text-rose-600" />
               <div>
                 <p className="text-xs text-amber-700/70">Descontos</p>
-                <p className="text-sm font-semibold font-mono tabular-nums text-amber-900">
-                  {formatCurrency(ultimoHolerite.totalDescontos)}
+                <p className="text-sm font-semibold text-amber-900">
+                  <MoneyDisplay value={ultimoHolerite.totalDescontos} />
                 </p>
               </div>
             </div>
@@ -130,26 +131,26 @@ export default async function FolhaPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-xs text-muted-foreground">Total Bruto</p>
-              <p className="text-sm font-semibold font-mono tabular-nums text-foreground">
-                {formatCurrency(resumoAnual.totalBruto)}
+              <p className="text-sm font-semibold text-foreground">
+                <MoneyDisplay value={resumoAnual.totalBruto} />
               </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Total Líquido</p>
-              <p className="text-sm font-semibold font-mono tabular-nums text-foreground">
-                {formatCurrency(resumoAnual.totalLiquido)}
+              <p className="text-sm font-semibold text-foreground">
+                <MoneyDisplay value={resumoAnual.totalLiquido} />
               </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Média Líquida</p>
-              <p className="text-sm font-semibold font-mono tabular-nums text-foreground">
-                {formatCurrency(resumoAnual.mediaLiquida)}
+              <p className="text-sm font-semibold text-foreground">
+                <MoneyDisplay value={resumoAnual.mediaLiquida} />
               </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Total Descontos</p>
-              <p className="text-sm font-semibold font-mono tabular-nums text-foreground">
-                {formatCurrency(resumoAnual.totalDescontos)}
+              <p className="text-sm font-semibold text-foreground">
+                <MoneyDisplay value={resumoAnual.totalDescontos} />
               </p>
             </div>
           </div>
@@ -185,15 +186,15 @@ export default async function FolhaPage() {
 
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <p className="text-sm font-semibold font-mono tabular-nums text-foreground">
-                      {formatCurrency(holerite.salarioLiquido)}
+                    <p className="text-sm font-semibold text-foreground">
+                      <MoneyDisplay value={holerite.salarioLiquido} />
                     </p>
                     <div className="flex items-center justify-end gap-2 text-xs">
                       <span className="text-emerald-600">
-                        +{formatCurrency(holerite.totalProventos)}
+                        +<MoneyDisplay value={holerite.totalProventos} className="inline" />
                       </span>
                       <span className="text-rose-600">
-                        -{formatCurrency(holerite.totalDescontos)}
+                        -<MoneyDisplay value={holerite.totalDescontos} className="inline" />
                       </span>
                     </div>
                   </div>
@@ -213,8 +214,8 @@ export default async function FolhaPage() {
                         <span className="text-muted-foreground truncate mr-2">
                           {item.descricaoAbreviada}
                         </span>
-                        <span className="font-mono tabular-nums text-emerald-600">
-                          {formatCurrency(item.valor)}
+                        <span className="text-emerald-600">
+                          <MoneyDisplay value={item.valor} className="inline" />
                         </span>
                       </div>
                     ))}
@@ -235,8 +236,8 @@ export default async function FolhaPage() {
                         <span className="text-muted-foreground truncate mr-2">
                           {item.descricaoAbreviada}
                         </span>
-                        <span className="font-mono tabular-nums text-rose-600">
-                          {formatCurrency(item.valor)}
+                        <span className="text-rose-600">
+                          <MoneyDisplay value={item.valor} className="inline" />
                         </span>
                       </div>
                     ))}

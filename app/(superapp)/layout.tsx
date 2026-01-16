@@ -18,6 +18,7 @@ import {
   User,
 } from "@phosphor-icons/react/dist/ssr";
 import { OfflineIndicator } from "@/components/pwa";
+import { PrivacyToggle } from "@/components/privacy-toggle";
 
 const navItems = [
   { href: "/", icon: House, label: "Início" },
@@ -48,18 +49,23 @@ export default function SuperAppLayout({
             </span>
           </Link>
           
-          <nav className="flex items-center gap-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/5 dark:text-slate-400 dark:hover:text-primary dark:hover:bg-primary/10 transition-colors"
-              >
-                <item.icon className="w-5 h-5" weight="duotone" />
-                <span className="text-sm font-medium">{item.label}</span>
-              </Link>
-            ))}
-          </nav>
+          <div className="flex items-center gap-2">
+            <nav className="flex items-center gap-1">
+              {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/5 dark:text-slate-400 dark:hover:text-primary dark:hover:bg-primary/10 transition-colors"
+                >
+                  <item.icon className="w-5 h-5" weight="duotone" />
+                  <span className="text-sm font-medium">{item.label}</span>
+                </Link>
+              ))}
+            </nav>
+            
+            {/* Privacy Toggle */}
+            <PrivacyToggle />
+          </div>
         </div>
       </header>
 
@@ -75,19 +81,27 @@ export default function SuperAppLayout({
 
       {/* Bottom Navigation - Mobile only */}
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-20 bg-white dark:bg-slate-900 border-t border-slate-200/50 dark:border-white/10 shadow-[0_-1px_2px_rgba(0,0,0,0.04)]">
-        <div className="flex items-center justify-around h-16 px-4 max-w-lg mx-auto">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex flex-col items-center justify-center min-h-11 min-w-11 px-3 py-2 rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/5 dark:text-slate-400 dark:hover:text-primary dark:hover:bg-primary/10 transition-colors"
-            >
-              <item.icon className="w-6 h-6" weight="duotone" />
-              <span className="text-[10px] font-medium mt-0.5">
-                {item.label}
-              </span>
-            </Link>
-          ))}
+        <div className="flex items-center justify-between h-16 px-2 max-w-lg mx-auto">
+          {/* Privacy Toggle - Mobile */}
+          <div className="flex-shrink-0 pl-2">
+            <PrivacyToggle />
+          </div>
+          
+          {/* Nav Items */}
+          <div className="flex items-center justify-around flex-1">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex flex-col items-center justify-center min-h-11 min-w-11 px-3 py-2 rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/5 dark:text-slate-400 dark:hover:text-primary dark:hover:bg-primary/10 transition-colors"
+              >
+                <item.icon className="w-6 h-6" weight="duotone" />
+                <span className="text-[10px] font-medium mt-0.5">
+                  {item.label}
+                </span>
+              </Link>
+            ))}
+          </div>
         </div>
       </nav>
     </div>
