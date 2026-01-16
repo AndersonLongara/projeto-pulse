@@ -163,7 +163,7 @@ export function EditUserDialog({ user, isSuperAdmin, onClose }: EditUserDialogPr
           </div>
 
           {/* Status Ativo */}
-          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+          <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
             <div>
               <Label htmlFor="ativo" className="text-sm font-medium">
                 Usuário Ativo
