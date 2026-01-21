@@ -40,13 +40,12 @@ export default function SuperAppLayout({
       {/* Desktop Header - Hidden on mobile */}
       <header className="hidden lg:flex fixed top-0 inset-x-0 z-20 bg-white dark:bg-slate-900 border-b border-slate-200/50 dark:border-white/10 shadow-sm">
         <div className="w-full max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">P</span>
-            </div>
-            <span className="font-semibold tracking-tight text-foreground dark:text-slate-50">
-              Pulse
-            </span>
+          <Link href="/" className="flex items-center">
+            <img 
+              src="/logos/pulse-logo.png" 
+              alt="Pulse" 
+              className="h-8 w-auto object-contain"
+            />
           </Link>
           
           <div className="flex items-center gap-2">

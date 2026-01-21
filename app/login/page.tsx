@@ -39,8 +39,12 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm shadow-[0_1px_2px_rgba(0,0,0,0.04),_0_4px_8px_rgba(0,0,0,0.02)] dark:bg-slate-900 dark:border-white/10">
         <CardHeader className="space-y-3 text-center pb-6">
           {/* Logo */}
-          <div className="mx-auto w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
-            <ChatCircleDots className="w-6 h-6 text-primary-foreground" weight="fill" />
+          <div className="mx-auto">
+            <img 
+              src="/logos/pulse-logo.png" 
+              alt="Pulse IA" 
+              className="h-12 w-auto object-contain mx-auto"
+            />
           </div>
           <div className="space-y-1">
             <CardTitle className="text-xl font-semibold tracking-tight">

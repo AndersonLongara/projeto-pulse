@@ -43,11 +43,12 @@ export default async function AdminLayout({
       <aside className="hidden md:flex w-64 flex-col fixed inset-y-0 left-0 z-20 bg-white dark:bg-slate-900 border-r border-slate-200/50 dark:border-white/10">
         {/* Logo */}
         <div className="h-14 flex items-center px-4 border-b border-slate-200/50 dark:border-white/10">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-sm font-bold text-primary-foreground">P</span>
-            </div>
-            <span className="font-semibold tracking-tight dark:text-slate-50">Pulse Admin</span>
+          <Link href="/dashboard" className="flex items-center">
+            <img 
+              src="/logos/pulse-logo.png" 
+              alt="Pulse Admin" 
+              className="h-8 w-auto object-contain"
+            />
           </Link>
         </div>
 
