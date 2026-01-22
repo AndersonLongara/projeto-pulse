@@ -21,6 +21,7 @@ import {
 import { getSession } from "@/lib/auth";
 import { logout } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/ui/logo";
 
 const navItems = [
   { href: "/dashboard", icon: House, label: "Dashboard" },
@@ -44,11 +45,7 @@ export default async function AdminLayout({
         {/* Logo */}
         <div className="h-14 flex items-center px-4 border-b border-slate-200/50 dark:border-white/10">
           <Link href="/dashboard" className="flex items-center">
-            <img 
-              src="/logos/pulse-logo.png" 
-              alt="Pulse Admin" 
-              className="h-8 w-auto object-contain"
-            />
+            <Logo alt="Pulse Admin" />
           </Link>
         </div>
 

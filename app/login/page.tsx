@@ -12,10 +12,11 @@
 
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Spinner, ChatCircleDots } from "@phosphor-icons/react";
+import { Spinner } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Logo } from "@/components/ui/logo";
 import { login, type LoginState } from "@/lib/actions/auth";
 
 const initialState: LoginState = {};
@@ -40,11 +41,7 @@ export default function LoginPage() {
         <CardHeader className="space-y-3 text-center pb-6">
           {/* Logo */}
           <div className="mx-auto">
-            <img 
-              src="/logos/pulse-logo.png" 
-              alt="Pulse IA" 
-              className="h-12 w-auto object-contain mx-auto"
-            />
+            <Logo alt="Pulse IA" className="h-12 w-auto object-contain mx-auto" />
           </div>
           <div className="space-y-1">
             <CardTitle className="text-xl font-semibold tracking-tight">

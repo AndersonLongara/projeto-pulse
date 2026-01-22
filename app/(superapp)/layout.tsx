@@ -19,6 +19,7 @@ import {
 } from "@phosphor-icons/react/dist/ssr";
 import { OfflineIndicator } from "@/components/pwa";
 import { PrivacyToggle } from "@/components/privacy-toggle";
+import { Logo } from "@/components/ui/logo";
 
 const navItems = [
   { href: "/", icon: House, label: "Início" },
@@ -41,11 +42,7 @@ export default function SuperAppLayout({
       <header className="hidden lg:flex fixed top-0 inset-x-0 z-20 bg-white dark:bg-slate-900 border-b border-slate-200/50 dark:border-white/10 shadow-sm">
         <div className="w-full max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center">
-            <img 
-              src="/logos/pulse-logo.png" 
-              alt="Pulse" 
-              className="h-8 w-auto object-contain"
-            />
+            <Logo />
           </Link>
           
           <div className="flex items-center gap-2">
