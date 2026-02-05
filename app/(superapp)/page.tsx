@@ -21,8 +21,8 @@ import {
   FileText,
 } from "@phosphor-icons/react/dist/ssr";
 import { getSession } from "@/lib/auth";
+import prisma from "@/lib/prisma";
 import {
-  getVacationData,
   getPayslips,
   getClockEvents,
   getBenefits,
@@ -97,13 +97,29 @@ export default async function SuperAppHomePage() {
   const session = await getSession();
   const userName = session?.nome?.split(" ")[0] || "Colaborador";
 
-  // Fetch all employee data in parallel
-  const [vacation, payslips, clock, benefits, upcomingEvents] = await Promise.all([
-    getVacationData("emp-001"),
-    getPayslips("emp-001"),
-    getClockEvents("emp-001"),
-    getBenefits("emp-001"),
-    getUpcomingEvents("emp-001"),
+  // Fetch user with real data from Prisma
+  const user = await prisma.user.findUnique({
+    where: { id: session.id },
+    include: {
+      vacationPeriods: {
+        orderBy: { inicioAquisitivo: "desc" },
+        take: 1,
+      },
+      _count: {
+        select: { vacationPeriods: true }
+      }
+    }
+  });
+
+  const latestVacation = user?.vacationPeriods[0];
+
+  // Fetch remaining data from mocks for now (passing real userId)
+  const userId = session.id;
+  const [payslips, clock, benefits, upcomingEvents] = await Promise.all([
+    getPayslips(userId),
+    getClockEvents(userId),
+    getBenefits(userId),
+    getUpcomingEvents(userId),
   ]);
 
   const ultimoHolerite = payslips?.holerites?.[0];
@@ -172,23 +188,23 @@ export default async function SuperAppHomePage() {
               <div>
                 <p className="text-sm text-muted-foreground">Saldo de Férias</p>
                 <p className="text-xl font-semibold font-mono tabular-nums text-foreground">
-                  {vacation?.saldoDias || 0} dias
+                  {latestVacation?.diasSaldo || 0} dias
                 </p>
               </div>
             </div>
             <CaretRight className="w-5 h-5 text-muted-foreground" />
           </div>
-          {vacation && (
+          {latestVacation && (
             <div className="mt-3 pt-3 border-t border-slate-100">
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <CalendarCheck className="w-3.5 h-3.5" />
                 <span>
                   Vence em{" "}
-                  {new Date(vacation.proximoVencimento).toLocaleDateString("pt-BR", {
+                  {latestVacation.dataLimite?.toLocaleDateString("pt-BR", {
                     day: "2-digit",
                     month: "short",
                     year: "numeric",
-                  })}
+                  }) || "Não definida"}
                 </span>
               </div>
             </div>
@@ -348,7 +364,7 @@ function EventCard({ event }: { event: UpcomingEvent }) {
       media: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
       alta: "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400",
     };
-    
+
     const labels = {
       baixa: "Baixa",
       media: "Média",
@@ -375,7 +391,7 @@ function EventCard({ event }: { event: UpcomingEvent }) {
     const eventDate = new Date(isoDate);
     const diffTime = eventDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) return "Hoje";
     if (diffDays === 1) return "Amanhã";
     if (diffDays <= 7) return `Em ${diffDays} dias`;
@@ -384,7 +400,7 @@ function EventCard({ event }: { event: UpcomingEvent }) {
 
   const Icon = getEventIcon(event.tipo);
   const color = getEventColor(event.tipo);
-  
+
   const colorClasses = {
     emerald: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400",
     violet: "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400",

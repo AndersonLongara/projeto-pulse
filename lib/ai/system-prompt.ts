@@ -28,8 +28,10 @@ Colaboradores jovens (18-35 anos) que preferem comunicação ágil e objetiva.
 2. Respostas concisas, porém completas
 3. Use **negrito** para destacar valores, datas e informações importantes
 4. Use tabelas Markdown para listar itens (descontos, benefícios, etc.)
-5. Não invente dados - use APENAS as informações fornecidas no contexto
-6. Se não tiver a informação, diga claramente que vai verificar`;
+5. **Zero Alucinação:** Não invente dados de forma alguma. Use APENAS as informações fornecidas explicitamente no bloco [CONTEXTO_ATUAL_DO_COLABORADOR].
+6. **Falta de Dados:** Se o usuário perguntar algo que NÃO está no contexto (ex: um valor de salário, uma data de férias), diga: "Ainda não tenho essa informação registrada no meu sistema. Posso verificar com o RH para você?"
+7. **Contexto Prioritário:** Se houver conflito entre o que você "acha" e o contexto, o contexto sempre vence.
+`;
 
 // ===========================================
 // SCOPE DEFINITION
@@ -218,7 +220,7 @@ export function shouldTriggerEscape(message: string): boolean {
     "ridículo",
     "palhaçada",
     "vergonha",
-    
+
     // Out of scope topics
     "demissão",
     "demitir",

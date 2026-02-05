@@ -22,7 +22,7 @@ import {
   Users,
 } from "@phosphor-icons/react/dist/ssr";
 import { getSession } from "@/lib/auth";
-import { getBenefits } from "@/lib/services/senior-mock";
+import prisma from "@/lib/prisma";
 import type { BenefitType } from "@/lib/services/senior-mock";
 import { MoneyDisplay } from "@/components/ui/money-display";
 
@@ -70,13 +70,42 @@ function getBenefitConfig(tipo: BenefitType) {
 
 export default async function BeneficiosPage() {
   const session = await getSession();
-  const benefitsData = await getBenefits("emp-001");
 
-  const activeBenefits = benefitsData?.beneficios?.filter((b) => b.ativo) || [];
-  const inactiveBenefits = benefitsData?.beneficios?.filter((b) => !b.ativo) || [];
-  const totalMensal = benefitsData?.totalMensal || 0;
+  if (!session) {
+    return (
+      <div className="p-6">
+        <p>Você precisa estar logado.</p>
+      </div>
+    );
+  }
 
-  // Calculate total employee discount
+  const dbBenefits = await prisma.benefit.findMany({
+    where: { userId: session.id },
+  });
+
+  const activeBenefits = dbBenefits.filter((b) => b.ativo).map(b => ({
+    id: b.id,
+    nome: b.nome,
+    tipo: b.tipo as BenefitType,
+    operadora: b.operadora,
+    plano: b.plano,
+    valor: Number(b.valor),
+    valorDesconto: Number(b.valorDesconto),
+    dependentes: b.dependentes,
+    coparticipacao: b.coparticipacao,
+    ativo: b.ativo
+  }));
+
+  const inactiveBenefits = dbBenefits.filter((b) => !b.ativo).map(b => ({
+    id: b.id,
+    nome: b.nome,
+    tipo: b.tipo as BenefitType,
+    operadora: b.operadora,
+    plano: b.plano,
+    ativo: b.ativo
+  }));
+
+  const totalMensal = activeBenefits.reduce((acc, b) => acc + b.valor, 0);
   const totalDesconto = activeBenefits.reduce((acc, b) => acc + b.valorDesconto, 0);
 
   return (

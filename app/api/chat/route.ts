@@ -28,6 +28,7 @@ import {
   getClockEvents,
   getBenefits,
 } from "@/lib/services/senior-mock";
+import { getRealAIContextData } from "@/lib/services/ai-context";
 
 // ===========================================
 // CONFIGURATION
@@ -211,6 +212,24 @@ export async function POST(request: Request) {
     // 5. Get last user message
     const lastUserMessage = messages.filter((m) => m.role === "user").pop();
 
+    if (sessionId && lastUserMessage) {
+      // Save user message to database
+      await prisma.chatMessage.create({
+        data: {
+          sessionId,
+          senderType: "USER",
+          senderId: userSession.id,
+          content: lastUserMessage.content,
+        },
+      });
+
+      // Update session timestamp
+      await prisma.chatSession.update({
+        where: { id: sessionId },
+        data: { updatedAt: new Date() },
+      });
+    }
+
     // 6. Check for escape triggers
     if (lastUserMessage && shouldTriggerEscape(lastUserMessage.content)) {
       // Update session to waiting for human
@@ -227,11 +246,66 @@ export async function POST(request: Request) {
       });
     }
 
-    // 7. Fetch employee context for RAG
-    const employeeContext = await fetchEmployeeContext("emp-001", userSession.nome);
+    // 7. Fetch employee context for RAG (Hybrid: Real Database + Mock Fallback)
+    const realVacationData = await getRealAIContextData(userSession.id);
 
-    // 8. Build system prompt with context
-    const systemPrompt = buildSystemPrompt() + employeeContext;
+    // Fetch mock data (will be used for payroll/benefits/clock which aren't in DB yet)
+    const mockId = "emp-001";
+    const [payslipData, clockData, benefitsData] = await Promise.all([
+      getPayslips(mockId),
+      getClockEvents(mockId),
+      getBenefits(mockId),
+    ]);
+
+    // Build merged context object
+    const mergedData: Parameters<typeof buildContextInjection>[0] = {
+      userName: userSession.nome,
+    };
+
+    // Use REAL vacation data if available
+    if (realVacationData?.vacation) {
+      mergedData.vacation = realVacationData.vacation;
+    }
+
+    // Still using MOCK for these (not migratred to DB yet)
+    if (payslipData && payslipData.holerites.length > 0) {
+      const ultimoHolerite = payslipData.holerites[0];
+      mergedData.payroll = {
+        ultimaCompetencia: ultimoHolerite.competencia,
+        salarioBruto: ultimoHolerite.salarioBruto,
+        salarioLiquido: ultimoHolerite.salarioLiquido,
+        totalDescontos: ultimoHolerite.totalDescontos,
+        dataPagamento: formatDateBR(ultimoHolerite.dataPagamento),
+        descontos: ultimoHolerite.descontos.map((d) => ({
+          descricao: d.descricao,
+          referencia: d.referencia,
+          valor: d.valor,
+        })),
+      };
+    }
+
+    if (clockData) {
+      mergedData.clock = {
+        bancoHoras: clockData._meta.bancoHorasLabel.short,
+        statusHoje: clockData._meta.statusHoje.long,
+        diasTrabalhados: clockData.resumoMes.diasTrabalhados,
+        diasUteis: clockData.resumoMes.diasUteis,
+      };
+    }
+
+    if (benefitsData) {
+      mergedData.benefits = benefitsData.beneficios
+        .filter((b) => b.ativo)
+        .map((b) => ({
+          nome: b.nome,
+          valor: b.valor,
+          status: b._display.status,
+        }));
+    }
+
+    // 8. Build system prompt with combined context snippet
+    const employeeContextSnippet = buildContextInjection(mergedData);
+    const systemPrompt = buildSystemPrompt() + employeeContextSnippet;
 
     // 9. Prepare messages for OpenRouter (OpenAI format)
     const openRouterMessages = [
@@ -295,7 +369,7 @@ export async function POST(request: Request) {
             for (const line of lines) {
               if (line.startsWith("data: ")) {
                 const data = line.slice(6);
-                
+
                 if (data === "[DONE]") {
                   continue;
                 }
@@ -303,7 +377,7 @@ export async function POST(request: Request) {
                 try {
                   const parsed = JSON.parse(data);
                   const content = parsed.choices?.[0]?.delta?.content;
-                  
+
                   if (content) {
                     fullResponse += content;
                     controller.enqueue(encoder.encode(content));

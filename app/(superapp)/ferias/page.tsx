@@ -22,31 +22,36 @@ import {
   ArrowRight,
 } from "@phosphor-icons/react/dist/ssr";
 import { getSession } from "@/lib/auth";
-import { getVacationData } from "@/lib/services/senior-mock";
+import prisma from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 
 // ===========================================
 // HELPER FUNCTIONS
 // ===========================================
 
-function formatDateBR(isoDate: string) {
-  return new Date(isoDate).toLocaleDateString("pt-BR", {
+function formatDateBR(date: Date | string | null | undefined) {
+  if (!date) return "Não definida";
+  const d = typeof date === "string" ? new Date(date) : date;
+  return d.toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "short",
     year: "numeric",
   });
 }
 
-function formatDateFull(isoDate: string) {
-  return new Date(isoDate).toLocaleDateString("pt-BR", {
+function formatDateFull(date: Date | string | null | undefined) {
+  if (!date) return "Não definida";
+  const d = typeof date === "string" ? new Date(date) : date;
+  return d.toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "long",
     year: "numeric",
   });
 }
 
-function getDaysRemaining(endDate: string) {
-  const end = new Date(endDate);
+function getDaysRemaining(endDate: Date | string | null | undefined) {
+  if (!endDate) return 999;
+  const end = typeof endDate === "string" ? new Date(endDate) : endDate;
   const today = new Date();
   const diffTime = end.getTime() - today.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -96,28 +101,42 @@ export default async function FeriasPage() {
     redirect("/login");
   }
 
-  const vacation = await getVacationData("emp-001");
+  // Fetch real vacation periods from database
+  const user = await prisma.user.findUnique({
+    where: { id: session.id },
+    include: {
+      vacationPeriods: {
+        orderBy: { inicioAquisitivo: "desc" },
+      },
+    },
+  });
 
-  if (!vacation) {
+  const vacationPeriods = user?.vacationPeriods || [];
+  const latestPeriod = vacationPeriods[0];
+
+  if (!latestPeriod) {
     return (
       <div className="p-4 lg:p-6 text-center">
-        <p className="text-muted-foreground">Não foi possível carregar os dados de férias.</p>
+        <p className="text-muted-foreground">Nenhum período de férias encontrado.</p>
       </div>
     );
   }
 
-  // Calculate progress percentages
-  const totalDias = 30; // Total days per period
-  const diasDisponiveis = vacation.saldoDias;
-  const diasGozados = vacation.diasGozados;
-  const diasProgramados = vacation.historico.filter((h) => h.status === "aprovada").reduce((acc, h) => acc + h.dias, 0);
+  // Map database fields to UI expectations
+  const diasDisponiveis = latestPeriod.diasSaldo;
+  const diasGozadosTotal = vacationPeriods.reduce((acc, p) => acc + p.diasGozados, 0);
+  const totalDiasDireito = latestPeriod.diasDireito || 30;
 
-  const percentGozado = (diasGozados / totalDias) * 100;
-  const percentProgramado = (diasProgramados / totalDias) * 100;
-  const percentDisponivel = (diasDisponiveis / totalDias) * 100;
+  // For the progress circle, we show the current/latest period
+  const diasProgramados = latestPeriod.ultFeriasStatus === "APROVADA" ? latestPeriod.ultFeriasDias : 0;
+  const diasGozadosPeriodoAtu = latestPeriod.diasGozados;
+
+  const percentGozado = (diasGozadosPeriodoAtu / totalDiasDireito) * 100;
+  const percentProgramado = (diasProgramados / totalDiasDireito) * 100;
+  const percentDisponivel = (diasDisponiveis / totalDiasDireito) * 100;
 
   // Days until next deadline
-  const diasAteVencimento = getDaysRemaining(vacation.proximoVencimento);
+  const diasAteVencimento = getDaysRemaining(latestPeriod.dataLimite);
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
@@ -216,7 +235,7 @@ export default async function FeriasPage() {
                 <div className="w-3 h-3 rounded-full bg-slate-400" />
                 <span className="text-sm text-muted-foreground dark:text-slate-400">Gozadas</span>
               </div>
-              <span className="font-mono tabular-nums font-medium dark:text-slate-200">{diasGozados} dias</span>
+              <span className="font-mono tabular-nums font-medium dark:text-slate-200">{diasGozadosPeriodoAtu} dias</span>
             </div>
           </div>
         </div>
@@ -233,7 +252,7 @@ export default async function FeriasPage() {
               </span>
             </div>
             <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-              Agende suas férias antes de {formatDateBR(vacation.proximoVencimento)}
+              Agende suas férias antes de {formatDateBR(latestPeriod.dataLimite)}
             </p>
           </div>
         )}
@@ -259,7 +278,7 @@ export default async function FeriasPage() {
                 </span>
               </div>
               <p className="mt-0.5 text-sm text-muted-foreground dark:text-slate-400">
-                {formatDateFull(vacation.periodoAquisitivo.inicio)} → {formatDateFull(vacation.periodoAquisitivo.fim)}
+                {formatDateFull(latestPeriod.inicioAquisitivo)} → {formatDateFull(latestPeriod.fimAquisitivo)}
               </p>
               {/* Progress bar */}
               <div className="mt-3">
@@ -267,12 +286,12 @@ export default async function FeriasPage() {
                   <div
                     className="h-full bg-emerald-500 rounded-full transition-all"
                     style={{
-                      width: `${Math.min(100, ((365 - getDaysRemaining(vacation.periodoAquisitivo.fim)) / 365) * 100)}%`,
+                      width: `${Math.min(100, ((365 - getDaysRemaining(latestPeriod.fimAquisitivo)) / 365) * 100)}%`,
                     }}
                   />
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground dark:text-slate-400">
-                  {getDaysRemaining(vacation.periodoAquisitivo.fim)} dias restantes
+                  {getDaysRemaining(latestPeriod.fimAquisitivo)} dias restantes
                 </p>
               </div>
             </div>
@@ -293,10 +312,10 @@ export default async function FeriasPage() {
                 </span>
               </div>
               <p className="mt-0.5 text-sm text-muted-foreground dark:text-slate-400">
-                {formatDateFull(vacation.periodoConcessivo.inicio)} → {formatDateFull(vacation.periodoConcessivo.fim)}
+                {formatDateFull(new Date(latestPeriod.fimAquisitivo.getTime() + 86400000))} → {formatDateFull(latestPeriod.dataLimite)}
               </p>
               <p className="mt-1 text-xs text-muted-foreground dark:text-slate-500">
-                Você poderá tirar férias a partir de {formatDateBR(vacation.periodoConcessivo.inicio)}
+                Você poderá tirar férias a partir de {formatDateBR(new Date(latestPeriod.fimAquisitivo.getTime() + 86400000))}
               </p>
             </div>
           </div>
@@ -310,18 +329,19 @@ export default async function FeriasPage() {
             Histórico
           </h2>
           <span className="text-xs text-muted-foreground">
-            Últimos {vacation.historico.length} registros
+            Últimos {vacationPeriods.length} registros
           </span>
         </div>
 
         <div className="space-y-3">
-          {vacation.historico.map((record) => {
-            const status = statusConfig[record.status];
+          {vacationPeriods.filter(p => p.ultFeriasInicio).map((p) => {
+            const statusStr = (p.ultFeriasStatus || "PENDENTE").toLowerCase() as keyof typeof statusConfig;
+            const status = statusConfig[statusStr] || statusConfig.pendente;
             const StatusIcon = status.icon;
 
             return (
               <div
-                key={record.id}
+                key={p.id}
                 className="bg-white dark:bg-slate-900 rounded-xl p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04),_0_4px_8px_rgba(0,0,0,0.02)] border border-slate-100 dark:border-white/10"
               >
                 <div className="flex items-start justify-between gap-3">
@@ -332,20 +352,15 @@ export default async function FeriasPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-mono tabular-nums font-medium dark:text-slate-50">
-                          {record.dias} dias
+                          {p.ultFeriasDias || p.diasGozados} dias
                         </span>
                         <span className={cn("px-2 py-0.5 text-xs font-medium rounded-full", status.color)}>
                           {status.label}
                         </span>
                       </div>
                       <p className="mt-0.5 text-sm text-muted-foreground dark:text-slate-400">
-                        {formatDateBR(record.dataInicio)} → {formatDateBR(record.dataFim)}
+                        {formatDateBR(p.ultFeriasInicio)} → {formatDateBR(p.ultFeriasFim)}
                       </p>
-                      {record.abonoPecuniario && (
-                        <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
-                          + {record.diasAbono} dias vendidos
-                        </p>
-                      )}
                     </div>
                   </div>
                   <CaretRight className="w-5 h-5 text-muted-foreground shrink-0" />

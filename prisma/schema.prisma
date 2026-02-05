@@ -32,11 +32,17 @@ model User {
   dataAdmissao  DateTime?
   avatarUrl     String?
   theme         String    @default("system") // system, light, dark
+  situacao      String?   // Trabalhando, Férias, Afastado (From Real Data)
   
   // Relations
   chatSessions     ChatSession[]
   assignedSessions ChatSession[] @relation("AssignedAdmin")
   sentMessages     ChatMessage[] @relation("MessageSender")
+  vacationRequests VacationRequest[]
+  vacationPeriods  VacationPeriod[]
+  payslips         Payslip[]
+  timeRecords      TimeRecord[]
+  benefits         Benefit[]
   
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -108,3 +114,195 @@ model AuditLog {
   @@index([createdAt])
   @@map("audit_logs")
 }
+
+// ===========================================
+// VACATION & ATTENDANCE
+// ===========================================
+
+model VacationRequest {
+  id              String    @id @default(cuid())
+  userId          String
+  dataInicio      DateTime
+  dataFim         DateTime
+  diasGozados     Int
+  status          String    @default("PENDENTE") // APROVADO, PENDENTE, PLANEJADO, CANCELADO
+  
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("vacation_requests")
+}
+
+model VacationPeriod {
+  id              String    @id @default(cuid())
+  userId          String
+  
+  // Período Aquisitivo
+  inicioAquisitivo DateTime
+  fimAquisitivo    DateTime
+  dataLimite       DateTime?
+  
+  // Saldos e Contagem
+  diasDireito       Float     @default(0)
+  diasSaldo         Float     @default(0)
+  diasGozados       Float     @default(0)
+  diasAbono         Float     @default(0)
+  
+  // Metadados do período
+  avosAdquiridos    Int       @default(0)
+  faltas            Int       @default(0)
+  afastamentos      Int       @default(0)
+  direitoFolgaCct   String?
+  
+  // Dados das Últimas Férias (Snapshot do período)
+  ultFeriasInicio      DateTime?
+  ultFeriasFim         DateTime?
+  ultFeriasDias        Float?
+  ultFeriasDataPagto   DateTime?
+  
+  // Dados Financeiros (Decimal para precisão)
+  ultFeriasValorAbono    Decimal?
+  ultFeriasTercoAbono    Decimal?
+  ultFeriasTerco         Decimal?
+  ultFerias13Adiantado   Decimal?
+  ultFeriasProventos     Decimal?
+  ultFeriasDescontos     Decimal?
+  ultFeriasLiquido       Decimal?
+  
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("vacation_periods")
+}
+
+// ===========================================
+// PAYROLL & PAYSLIPS
+// ===========================================
+
+model Payslip {
+  id              String    @id @default(cuid())
+  userId          String
+  competencia     String    // MM/YYYY
+  competenciaISO  String    // YYYY-MM
+  dataPagamento   DateTime
+  salarioBruto    Decimal
+  salarioLiquido  Decimal
+  totalProventos  Decimal
+  totalDescontos  Decimal
+  fgts            Decimal
+  inssPatronal    Decimal?
+  status          String    @default("PAGO") // PAGO, PENDENTE, PROCESSADO
+  
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items           PayslipItem[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([competenciaISO])
+  @@map("payslips")
+}
+
+model PayslipItem {
+  id              String    @id @default(cuid())
+  payslipId       String
+  codigo          String
+  descricao       String
+  referencia      String?   // e.g., "14%", "30 dias"
+  valor           Decimal
+  tipo            String    // PROVENTO, DESCONTO
+  subtipo         String?   // salario, inss, irrf, vt, etc.
+  
+  // Relations
+  payslip         Payslip   @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+
+  @@index([payslipId])
+  @@map("payslip_items")
+}
+
+// ===========================================
+// TIME TRACKING (PONTO ELETRÔNICO)
+// ===========================================
+
+model TimeRecord {
+  id              String      @id @default(cuid())
+  userId          String
+  data            String      // YYYY-MM-DD
+  diaSemana       String?     // segunda-feira, terça-feira, etc.
+  
+  // Totals in minutes
+  minutosTrabalhados Int      @default(0)
+  minutosExtras      Int      @default(0)
+  minutosDevidos     Int      @default(0)
+  saldoDia           Int      @default(0)
+  
+  status          String      @default("NORMAL") // NORMAL, FALTA, ATRASO, FOLGA, FERIADO, ATESTADO
+  
+  // Relations
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events          TimeEvent[]
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([userId, data])
+  @@index([userId])
+  @@index([data])
+  @@map("time_records")
+}
+
+model TimeEvent {
+  id              String      @id @default(cuid())
+  timeRecordId    String
+  tipo            String      // ENTRADA, SAIDA
+  horario         String      // HH:mm
+  origem          String      @default("MANUAL") // MANUAL, BIOMETRIA, APP, WEB
+  
+  // Relations
+  timeRecord      TimeRecord  @relation(fields: [timeRecordId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("time_events")
+}
+
+// ===========================================
+// BENEFITS (BENEFÍCIOS)
+// ===========================================
+
+model Benefit {
+  id              String      @id @default(cuid())
+  userId          String
+  nome            String
+  tipo            String      // plano_saude, plano_odonto, vr, vt, gympass, etc.
+  operadora       String?     // Unimed, Alelo, etc.
+  plano           String?     // Executivo, Básico, etc.
+  
+  valor           Decimal     @default(0)
+  valorDesconto   Decimal     @default(0)
+  dependentes     Int         @default(0)
+  coparticipacao  Boolean     @default(false)
+  ativo           Boolean     @default(true)
+  
+  // Relations
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([userId])
+  @@map("benefits")
+}
+

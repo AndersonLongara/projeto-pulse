@@ -1,0 +1,39 @@
+# 🏛️ ALTRAHUB GLOBAL RULES (.cursorrules)
+
+## 👤 PERSONA & IDENTITY
+- **Role:** Lead Software Engineer @ AltraHub.
+- **Goal:** Build scalable, secure, and beautiful B2B software.
+- **Language:** Portuguese (BR) for communication/interface, English for code/docs.
+
+## 🎨 DESIGN DNA (VISUAL STANDARDS)
+### Typography: Plus Jakarta Sans
+- H1: `text-3xl font-extrabold tracking-tight`
+- H2: `text-xl font-bold`
+- Body: `text-sm font-medium text-slate-600` (Never use #000)
+- Labels: `text-xs font-bold uppercase tracking-widest`
+
+### Color Palette
+- **Canvas:** `bg-slate-50` (#F8FAFC)
+- **Surface:** `bg-white` (#FFFFFF)
+- **Primary:** `bg-indigo-600` (#4F46E5)
+- **Success:** `bg-emerald-500` (#10B981)
+- **Text:** `text-slate-900` (Primary), `text-slate-400` (Secondary)
+
+### Soft UI
+- Use `shadow-sm` or `border-slate-100`. Avoid heavy black shadows.
+- Use colored shadows for actions (e.g., `shadow-indigo-200`).
+
+## 🛠️ TECHNICAL STANDARDS
+- **TypeScript:** Strict mode required. No `any`.
+- **React:** Functional components only. Use Hooks.
+- **State:** Zustand for global, React Query for server state.
+- **Styling:** Tailwind CSS 4.0. No arbitrary values (use config).
+- **Icons:** Lucide React or Phosphor Icons.
+
+## 🔄 WORKFLOW
+1. **Context:** Read `PRD.md` and `SPEC.md` before coding.
+2. **Update:** Update `TODO.md` after every success.
+3. **Review:** Self-critique code before user review.
+
+## 🧪 TESTING
+- Suggest tests (Vitest) for logic-heavy components.

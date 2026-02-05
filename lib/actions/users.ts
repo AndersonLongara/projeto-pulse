@@ -75,14 +75,24 @@ export async function getUsers() {
         cargo: true,
         departamento: true,
         ativo: true,
+        ativo: true,
         createdAt: true,
+        situacao: true,
+        vacationPeriods: {
+          orderBy: { inicioAquisitivo: "desc" },
+          take: 1,
+          select: {
+            diasSaldo: true,
+            dataLimite: true,
+          },
+        },
         _count: {
           select: {
             chatSessions: true,
           },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { nome: "asc" },
     });
 
     return users;
@@ -93,8 +103,35 @@ export async function getUsers() {
 }
 
 /**
- * Create a new user
+ * Get detailed user information including all vacation periods
  */
+export async function getUserDetails(userId: string) {
+  const session = await getSession();
+  if (!session || !isAdmin(session.role)) {
+    return null;
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        vacationPeriods: {
+          orderBy: { inicioAquisitivo: "desc" },
+        },
+        _count: {
+          select: {
+            chatSessions: true,
+          },
+        },
+      },
+    });
+
+    return user;
+  } catch (error) {
+    console.error("Error fetching user details:", error);
+    return null;
+  }
+}
 export async function createUser(
   _prevState: UserActionState,
   formData: FormData

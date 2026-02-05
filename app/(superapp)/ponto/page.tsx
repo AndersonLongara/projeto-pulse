@@ -20,7 +20,7 @@ import {
   Coffee,
 } from "@phosphor-icons/react/dist/ssr";
 import { getSession } from "@/lib/auth";
-import { getClockEvents } from "@/lib/services/senior-mock";
+import prisma from "@/lib/prisma";
 
 // Format minutes to hours string
 function formatMinutesToHours(minutes: number): string {
@@ -75,15 +75,78 @@ function StatusBadge({ status }: { status: string }) {
 
 export default async function PontoPage() {
   const session = await getSession();
-  const clockData = await getClockEvents("emp-001");
 
-  const bancoHoras = clockData?.bancoHoras || 0;
-  const resumoMes = clockData?.resumoMes;
-  const registros = clockData?.registros || [];
+  if (!session) {
+    return (
+      <div className="p-6">
+        <p>Você precisa estar logado.</p>
+      </div>
+    );
+  }
+
+  // 1. Fetch all records to calculate global "Banco de Horas"
+  const allRecords = await prisma.timeRecord.findMany({
+    where: { userId: session.id },
+    select: { saldoDia: true }
+  });
+
+  const bancoHoras = allRecords.reduce((acc, r) => acc + r.saldoDia, 0);
+
+  // 2. Fetch records for the current month for "Resumo Mês"
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+  const monthRecords = await prisma.timeRecord.findMany({
+    where: {
+      userId: session.id,
+      data: {
+        gte: startOfMonth,
+        lte: endOfMonth
+      }
+    }
+  });
+
+  const resumoMes = {
+    competencia: now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }),
+    diasUteis: 22, // Simplified for now
+    diasTrabalhados: monthRecords.length,
+    horasTrabalhadas: monthRecords.reduce((acc, r) => acc + r.minutosTrabalhados, 0),
+    horasExtras: monthRecords.reduce((acc, r) => acc + r.minutosExtras, 0),
+    faltas: monthRecords.filter(r => r.status === 'FALTA').length,
+    atrasos: monthRecords.filter(r => r.status === 'ATRASO').length,
+  };
+
+  // 3. Fetch recent records with events for the list and "Hoje"
+  const recentRecords = await prisma.timeRecord.findMany({
+    where: { userId: session.id },
+    include: {
+      events: {
+        orderBy: { horario: 'asc' }
+      }
+    },
+    orderBy: { data: 'desc' },
+    take: 10
+  });
+
+  const registros = recentRecords.map(r => ({
+    id: r.id,
+    data: r.data,
+    status: r.status.toLowerCase(),
+    saldo: r.saldoDia,
+    eventos: r.events.map(e => ({
+      horario: e.horario,
+      tipo: e.tipo.toLowerCase() as 'entrada' | 'saida'
+    })),
+    _display: {
+      trabalhadas: formatMinutesToHours(r.minutosTrabalhados).replace('+', ''),
+      saldo: formatMinutesToHours(r.saldoDia)
+    }
+  }));
 
   // Get today's record
-  const hoje = new Date().toISOString().split("T")[0];
-  const registroHoje = registros.find((r) => r.data === hoje);
+  const hojeStr = new Date().toISOString().split("T")[0];
+  const registroHoje = registros.find((r) => r.data === hojeStr); // Note: local time vs UTC might be tricky here, but for now assuming server time matches or YYYY-MM-DD consistency
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
