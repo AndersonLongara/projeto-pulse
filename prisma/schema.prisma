@@ -39,6 +39,7 @@ model User {
   assignedSessions ChatSession[] @relation("AssignedAdmin")
   sentMessages     ChatMessage[] @relation("MessageSender")
   vacationRequests VacationRequest[]
+  approvedRequests VacationRequest[] @relation("ApprovedByAdmin")
   vacationPeriods  VacationPeriod[]
   payslips         Payslip[]
   timeRecords      TimeRecord[]
@@ -58,7 +59,8 @@ model ChatSession {
   id              String    @id @default(cuid())
   userId          String
   titulo          String?   // Auto-generated from first message
-  status          String    @default("ACTIVE_IA") // ACTIVE_IA, WAITING_HUMAN, HUMAN_INTERVENTION
+  tipo            String    @default("EMPLOYEE") // EMPLOYEE, ADMIN_CHAT
+  status          String    @default("ACTIVE_IA") // ACTIVE_IA, WAITING_HUMAN, HUMAN_INTERVENTION, CLOSED
   assignedAdminId String?   // Admin who took over the conversation
   
   // Relations
@@ -125,10 +127,19 @@ model VacationRequest {
   dataInicio      DateTime
   dataFim         DateTime
   diasGozados     Int
-  status          String    @default("PENDENTE") // APROVADO, PENDENTE, PLANEJADO, CANCELADO
+  status          String    @default("PENDENTE") // APROVADO, PENDENTE, PLANEJADO, CANCELADO, REJEITADO
+  
+  // Detalhes adicionais
+  origem          String    @default("MANUAL") // MANUAL, CHAT_IA - como a solicitação foi criada
+  observacoes     String?   // Observações do colaborador
+  motivoRecusa    String?   // Justificativa da recusa pelo admin
+  aprovadoPorId   String?   // Admin que aprovou/rejeitou
+  respondidoEm    DateTime? // Data da resposta (aprovação/rejeição)
+  diasAbono       Int       @default(0) // Dias de abono pecuniário (venda de férias)
   
   // Relations
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aprovadoPor     User?     @relation("ApprovedByAdmin", fields: [aprovadoPorId], references: [id])
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt

@@ -2,15 +2,17 @@
  * Chat Interface Component - Streaming Edition
  *
  * Client component for real-time chat with AI streaming.
- * Features: manual streaming, react-markdown, smart scroll, typing indicator.
+ * Updated for AI SDK v6 / @ai-sdk/react v3
  *
  * @see .github/agents/Master.agent.md - Section 2.4 (Micro-interactions)
  */
 
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport, isTextUIPart, isToolUIPart, getToolName, type UIMessage, type ToolUIPart, type DynamicToolUIPart } from "ai";
 import ReactMarkdown from "react-markdown";
 import {
   PaperPlaneTilt,
@@ -18,6 +20,8 @@ import {
   User,
   Spinner,
   ArrowDown,
+  CheckCircle,
+  WarningCircle,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -25,14 +29,6 @@ import { cn } from "@/lib/utils";
 // ===========================================
 // TYPES
 // ===========================================
-
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  createdAt?: Date;
-  isStreaming?: boolean;
-}
 
 interface ChatInterfaceProps {
   sessionId?: string;
@@ -65,18 +61,69 @@ export function ChatInterface({
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const lastScrollTop = useRef(0);
-
-  // State for messages and input
-  const [messages, setMessages] = useState<Message[]>(() =>
-    initialMessages.map((m) => ({
-      id: m.id,
-      role: m.senderType === "USER" ? "user" as const : "assistant" as const,
-      content: m.content,
-      createdAt: m.createdAt,
-    }))
-  );
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+
+  // Map initial messages to AI SDK v6 UIMessage format
+  const initialChatMessages: UIMessage[] = useMemo(() => initialMessages.map((m) => ({
+    id: m.id,
+    role: (m.senderType === "USER" ? "user" : "assistant") as "user" | "assistant",
+    parts: [{ type: "text" as const, text: m.content }],
+    createdAt: new Date(m.createdAt),
+  })), [initialMessages]);
+
+  // Create transport with custom API and session body
+  const transport = useMemo(() => new DefaultChatTransport({
+    api: "/api/chat",
+    body: { sessionId },
+  }), [sessionId]);
+
+  // AI SDK v6 useChat Hook
+  const {
+    messages,
+    sendMessage,
+    status,
+    error,
+  } = useChat({
+    transport,
+    messages: initialChatMessages,
+    onFinish: () => {
+      // Refresh to update server-side context or history if needed
+      router.refresh();
+      // Scroll to bottom
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
+    },
+    onError: (err) => {
+      console.error("Chat error:", err);
+    },
+  });
+
+  // Derive loading state from status
+  const isLoading = status === "streaming" || status === "submitted";
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+    setInput(e.target.value);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+
+    const userMessage = input.trim();
+    setInput(""); // Clear input immediately
+
+    // Reset height
+    if (inputRef.current) {
+      inputRef.current.style.height = "auto";
+    }
+
+    try {
+      await sendMessage({ text: userMessage });
+    } catch (err) {
+      console.error("Failed to send message:", err);
+    }
+  };
 
   // ===========================================
   // SMART SCROLL LOGIC
@@ -100,13 +147,11 @@ export function ChatInterface({
     const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
     const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
 
-    // User is scrolling up
     if (scrollTop < lastScrollTop.current && !isAtBottom) {
       setIsUserScrolling(true);
       setShowScrollButton(true);
     }
 
-    // User scrolled back to bottom
     if (isAtBottom) {
       setIsUserScrolling(false);
       setShowScrollButton(false);
@@ -115,9 +160,9 @@ export function ChatInterface({
     lastScrollTop.current = scrollTop;
   }, []);
 
-  // Auto-scroll when new messages arrive (unless user is scrolling)
+  // Auto-scroll when new messages arrive
   useEffect(() => {
-    if (!isUserScrolling && scrollRef.current) {
+    if (!isUserScrolling && scrollRef.current && messages.length > 0) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isLoading, isUserScrolling]);
@@ -127,146 +172,20 @@ export function ChatInterface({
     inputRef.current?.focus();
   }, []);
 
-  // ===========================================
-  // SUBMIT HANDLER WITH STREAMING
-  // ===========================================
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const content = input.trim();
-    if (!content || isLoading) return;
-
-    // Clear input and reset height
-    setInput("");
-    if (inputRef.current) {
-      inputRef.current.style.height = "auto";
-    }
-
-    // Add user message optimistically
-    const userMessage: Message = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      content,
-      createdAt: new Date(),
-    };
-    setMessages((prev) => [...prev, userMessage]);
-    setIsLoading(true);
-
-    try {
-      // Prepare messages for API
-      const apiMessages = [...messages, userMessage].map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-
-      // Call streaming API
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: apiMessages,
-          sessionId,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        
-        // Check for human intervention
-        if (error.status === "HUMAN_INTERVENTION") {
-          setIsLoading(false);
-          return;
-        }
-        
-        throw new Error(error.error || "Erro ao enviar mensagem");
-      }
-
-      // Check if response is plain text (escape response)
-      const contentType = response.headers.get("content-type");
-      if (contentType?.includes("text/plain")) {
-        const text = await response.text();
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `ai-${Date.now()}`,
-            role: "assistant",
-            content: text,
-            createdAt: new Date(),
-          },
-        ]);
-        setIsLoading(false);
-        router.refresh();
-        return;
-      }
-
-      // Handle streaming response
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("No reader available");
-
-      const decoder = new TextDecoder();
-      let assistantMessage: Message = {
-        id: `ai-${Date.now()}`,
-        role: "assistant",
-        content: "",
-        isStreaming: true,
-      };
-
-      // Add empty assistant message to show streaming
-      setMessages((prev) => [...prev, assistantMessage]);
-
-      // Read stream
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        assistantMessage = {
-          ...assistantMessage,
-          content: assistantMessage.content + chunk,
-        };
-
-        // Update message with new content
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMessage.id ? assistantMessage : m
-          )
-        );
-      }
-
-      // Mark streaming as complete
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantMessage.id
-            ? { ...m, isStreaming: false, createdAt: new Date() }
-            : m
-        )
-      );
-
-      // Refresh to sync with server
-      router.refresh();
-    } catch (error) {
-      console.error("Chat error:", error);
-      // Remove optimistic user message on error
-      setMessages((prev) => prev.filter((m) => m.id !== userMessage.id));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // Handle textarea auto-resize
   const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
+    handleInputChange(e);
     e.target.style.height = "auto";
     e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
   };
 
-  // Handle Enter key (submit without shift)
+  // Handle Enter key
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (input.trim() && !isLoading) {
-        handleSubmit(e as unknown as React.FormEvent);
+        const form = e.currentTarget.closest("form");
+        if (form) form.requestSubmit();
       }
     }
   };
@@ -293,13 +212,23 @@ export function ChatInterface({
             <MessageBubble
               key={message.id}
               message={message}
-              isStreaming={message.isStreaming}
             />
           ))}
 
-          {/* Typing indicator (shows when loading before assistant response) */}
-          {isLoading && messages[messages.length - 1]?.role === "user" && (
+          {/* Loading Indicator */}
+          {isLoading && (
+            messages.length === 0 ||
+            messages[messages.length - 1]?.role === "user" ||
+            (messages[messages.length - 1]?.role === "assistant" && getMessageText(messages[messages.length - 1]) === "")
+          ) && (
             <TypingIndicator />
+          )}
+
+          {/* Error display */}
+          {error && (
+            <div className="text-center text-red-500 text-sm py-2">
+              Erro: {error.message}
+            </div>
           )}
 
           {/* Intervention notice */}
@@ -384,6 +313,21 @@ export function ChatInterface({
 }
 
 // ===========================================
+// HELPER FUNCTIONS
+// ===========================================
+
+function getMessageText(message: UIMessage): string {
+  return message.parts
+    .filter(isTextUIPart)
+    .map((part) => part.text)
+    .join("");
+}
+
+function getToolInvocations(message: UIMessage) {
+  return message.parts.filter(isToolUIPart);
+}
+
+// ===========================================
 // WELCOME MESSAGE COMPONENT
 // ===========================================
 
@@ -431,13 +375,17 @@ function TypingIndicator() {
 
 function MessageBubble({
   message,
-  isStreaming,
 }: {
-  message: Message;
-  isStreaming?: boolean;
+  message: UIMessage;
 }) {
   const isUser = message.role === "user";
   const isAssistant = message.role === "assistant";
+  
+  const content = getMessageText(message);
+  const toolInvocations = getToolInvocations(message);
+
+  // Hide empty messages that only have tools (optional, but keeps chat clean initially)
+  if (!content && toolInvocations.length === 0) return null;
 
   return (
     <div
@@ -462,83 +410,111 @@ function MessageBubble({
         )}
       </div>
 
-      {/* Bubble */}
-      <div
-        className={cn(
-          "max-w-[80%] rounded-2xl px-4 py-3",
-          "transition-all duration-150",
-          isUser && "bg-primary text-primary-foreground rounded-tr-sm",
-          isAssistant &&
-            "bg-slate-50 dark:bg-slate-800 border border-slate-200/50 dark:border-white/10 shadow-[0_1px_2px_rgba(0,0,0,0.04),_0_4px_8px_rgba(0,0,0,0.02)] rounded-tl-sm"
-        )}
-      >
-        {/* Content with Markdown rendering */}
-        <div
-          className={cn(
-            "text-sm",
-            isUser ? "text-primary-foreground" : "text-foreground dark:text-slate-200",
-            // Markdown styles for assistant
-            isAssistant && [
-              "prose prose-sm max-w-none dark:prose-invert",
-              "prose-p:my-1 prose-p:leading-relaxed",
-              "prose-strong:font-semibold prose-strong:text-foreground dark:prose-strong:text-slate-100",
-              "prose-ul:my-2 prose-ul:pl-4",
-              "prose-li:my-0.5",
-              "prose-table:my-2 prose-table:text-xs",
-              "prose-th:px-2 prose-th:py-1 prose-th:bg-slate-100 dark:prose-th:bg-slate-700 prose-th:font-medium prose-th:text-left",
-              "prose-td:px-2 prose-td:py-1 prose-td:border-t prose-td:border-slate-200 dark:prose-td:border-slate-700",
-              "prose-em:italic prose-em:text-muted-foreground dark:prose-em:text-slate-400",
-            ]
-          )}
-        >
-          {isAssistant ? (
-            <ReactMarkdown
-              components={{
-                // Custom table styling
-                table: ({ children }) => (
-                  <table className="w-full border-collapse rounded-lg overflow-hidden my-2">
-                    {children}
-                  </table>
-                ),
-                // Bold values should use tabular nums for currency
-                strong: ({ children }) => (
-                  <strong className="font-semibold tabular-nums">
-                    {children}
-                  </strong>
-                ),
-                // Paragraphs
-                p: ({ children }) => (
-                  <p className="my-1 leading-relaxed">{children}</p>
-                ),
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
-          ) : (
-            <span className="whitespace-pre-wrap break-words">
-              {message.content}
-            </span>
-          )}
-        </div>
+      {/* Bubble Container */}
+      <div className="flex flex-col gap-2 max-w-[80%]">
 
-        {/* Streaming cursor */}
-        {isStreaming && (
-          <span className="inline-block w-1.5 h-4 bg-primary/60 animate-pulse ml-0.5 rounded-sm" />
-        )}
+        {/* Tool Invocations (Status Cards) */}
+        {toolInvocations.map((toolPart) => {
+          // In AI SDK v6, tool parts have properties directly (not nested in toolInvocation)
+          const toolName = getToolName(toolPart);
+          const toolCallId = toolPart.toolCallId;
+          const state = toolPart.state;
+          const output = 'output' in toolPart ? toolPart.output : undefined;
 
-        {/* Timestamp */}
-        {!isStreaming && message.createdAt && (
-          <p
+          if ((state === 'output-available' || state === 'output-error' || state === 'output-denied') && output) {
+            const result = output as Record<string, unknown>;
+
+            if (toolName === 'checkVacationEligibility') {
+              return (
+                <div key={toolCallId} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-lg p-3 text-sm shadow-sm opacity-80">
+                  <div className="flex items-center gap-2 mb-1">
+                    {result.valid ? <CheckCircle className="text-emerald-500" /> : <WarningCircle className="text-amber-500" />}
+                    <span className="font-semibold">{result.valid ? "Verificação Aprovada" : "Atenção"}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">{(result.message || result.reason) as string}</div>
+                </div>
+              );
+            }
+
+            if (toolName === 'createVacationRequest') {
+              return (
+                <div key={toolCallId} className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-3 text-sm shadow-sm">
+                  <div className="flex items-center gap-2 mb-1">
+                    <CheckCircle className="text-emerald-600 dark:text-emerald-400" />
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-300">Solicitação Recebida</span>
+                  </div>
+                  <div className="text-xs text-emerald-600/80 dark:text-emerald-400/80">
+                    Protocolo: {result.protocol as string}
+                  </div>
+                </div>
+              );
+            }
+          }
+
+          // Calling/streaming state
+          return (
+            <div key={toolCallId} className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/5 rounded-lg p-3 text-sm flex items-center gap-2 opacity-60">
+              <Spinner className="animate-spin w-4 h-4" />
+              <span className="text-xs">Processando {toolName}...</span>
+            </div>
+          );
+        })}
+
+        {/* Main Text Content */}
+        {content && (
+          <div
             className={cn(
-              "text-[10px] mt-1.5",
-              isUser ? "text-primary-foreground/70" : "text-muted-foreground"
+              "rounded-2xl px-4 py-3",
+              "transition-all duration-150",
+              isUser && "bg-primary text-primary-foreground rounded-tr-sm",
+              isAssistant &&
+              "bg-slate-50 dark:bg-slate-800 border border-slate-200/50 dark:border-white/10 shadow-[0_1px_2px_rgba(0,0,0,0.04),_0_4px_8px_rgba(0,0,0,0.02)] rounded-tl-sm"
             )}
           >
-            {new Date(message.createdAt).toLocaleTimeString("pt-BR", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </p>
+            <div
+              className={cn(
+                "text-sm",
+                isUser ? "text-primary-foreground" : "text-foreground dark:text-slate-200",
+                isAssistant && [
+                  "prose prose-sm max-w-none dark:prose-invert",
+                  "prose-p:my-1 prose-p:leading-relaxed",
+                  "prose-strong:font-semibold prose-strong:text-foreground dark:prose-strong:text-slate-100",
+                  "prose-ul:my-2 prose-ul:pl-4",
+                  "prose-li:my-0.5",
+                  "prose-table:my-2 prose-table:text-xs",
+                  "prose-th:px-2 prose-th:py-1 prose-th:bg-slate-100 dark:prose-th:bg-slate-700 prose-th:font-medium prose-th:text-left",
+                  "prose-td:px-2 prose-td:py-1 prose-td:border-t prose-td:border-slate-200 dark:prose-td:border-slate-700",
+                  "prose-em:italic prose-em:text-muted-foreground dark:prose-em:text-slate-400",
+                ]
+              )}
+            >
+              {isAssistant ? (
+                <ReactMarkdown
+                  components={{
+                    table: ({ children }) => (
+                      <table className="w-full border-collapse rounded-lg overflow-hidden my-2">
+                        {children}
+                      </table>
+                    ),
+                    strong: ({ children }) => (
+                      <strong className="font-semibold tabular-nums">
+                        {children}
+                      </strong>
+                    ),
+                    p: ({ children }) => (
+                      <p className="my-1 leading-relaxed">{children}</p>
+                    ),
+                  }}
+                >
+                  {content}
+                </ReactMarkdown>
+              ) : (
+                <span className="whitespace-pre-wrap break-words">
+                  {content}
+                </span>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>

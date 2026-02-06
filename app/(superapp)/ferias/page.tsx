@@ -128,7 +128,7 @@ export default async function FeriasPage() {
   const totalDiasDireito = latestPeriod.diasDireito || 30;
 
   // For the progress circle, we show the current/latest period
-  const diasProgramados = latestPeriod.ultFeriasStatus === "APROVADA" ? latestPeriod.ultFeriasDias : 0;
+  const diasProgramados = (latestPeriod.ultFeriasInicio && latestPeriod.ultFeriasDias) ? latestPeriod.ultFeriasDias : 0;
   const diasGozadosPeriodoAtu = latestPeriod.diasGozados;
 
   const percentGozado = (diasGozadosPeriodoAtu / totalDiasDireito) * 100;
@@ -335,7 +335,7 @@ export default async function FeriasPage() {
 
         <div className="space-y-3">
           {vacationPeriods.filter(p => p.ultFeriasInicio).map((p) => {
-            const statusStr = (p.ultFeriasStatus || "PENDENTE").toLowerCase() as keyof typeof statusConfig;
+            const statusStr = (p.ultFeriasInicio ? "aprovada" : "pendente") as keyof typeof statusConfig;
             const status = statusConfig[statusStr] || statusConfig.pendente;
             const StatusIcon = status.icon;
 

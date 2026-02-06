@@ -31,10 +31,12 @@
 - [x] Integração de Holerites com Banco de Dados.
 - [x] Integração de Ponto (Time Tracking) com Banco de Dados.
 - [x] Integração de Benefícios com Banco de Dados.
+- [x] Integração de Perfil com Banco de Dados.
 
 ### Compliance
 - [ ] Middleware para Logging de Ações Críticas.
-- [ ] Visualizador de Logs de Auditoria.
+- [x] Ajuste de prompt do Agente (Especialista Sênior em RH) <!-- id: 50 -->
+- [x] Testes unitários para lógica de persona da IA <!-- id: 51 -->
 
 ## 🧪 TESTING & QA
 - [ ] Configurar testes unitários para Services críticos.

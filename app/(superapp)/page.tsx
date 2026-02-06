@@ -23,9 +23,6 @@ import {
 import { getSession } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import {
-  getPayslips,
-  getClockEvents,
-  getBenefits,
   getUpcomingEvents,
 } from "@/lib/services/senior-mock";
 import type { UpcomingEvent, EventType } from "@/lib/services/senior-mock";
@@ -98,7 +95,7 @@ export default async function SuperAppHomePage() {
   const userName = session?.nome?.split(" ")[0] || "Colaborador";
 
   // Fetch user with real data from Prisma
-  const user = await prisma.user.findUnique({
+  const user = session ? await prisma.user.findUnique({
     where: { id: session.id },
     include: {
       vacationPeriods: {
@@ -109,21 +106,95 @@ export default async function SuperAppHomePage() {
         select: { vacationPeriods: true }
       }
     }
-  });
+  }) : null;
 
   const latestVacation = user?.vacationPeriods[0];
 
-  // Fetch remaining data from mocks for now (passing real userId)
-  const userId = session.id;
-  const [payslips, clock, benefits, upcomingEvents] = await Promise.all([
-    getPayslips(userId),
-    getClockEvents(userId),
-    getBenefits(userId),
+  // Fetch all data from Prisma
+  const userId = session?.id || "";
+  const [dbPayslip, dbBenefits, dbTimeRecords, dbTodayRecord, mockEvents, approvedRequests] = await Promise.all([
+    // Latest payslip
+    session ? prisma.payslip.findFirst({
+      where: { userId: session.id },
+      orderBy: { competenciaISO: "desc" },
+    }) : Promise.resolve(null),
+    // Active benefits
+    session ? prisma.benefit.findMany({
+      where: { userId: session.id, ativo: true },
+    }) : Promise.resolve([]),
+    // All time records for banco de horas
+    session ? prisma.timeRecord.findMany({
+      where: { userId: session.id },
+      select: { saldoDia: true },
+    }) : Promise.resolve([]),
+    // Today's time record with events
+    session ? prisma.timeRecord.findFirst({
+      where: { userId: session.id, data: new Date().toISOString().split("T")[0] },
+      include: { events: { orderBy: { horario: "asc" } } },
+    }) : Promise.resolve(null),
+    // Mock events (will be merged with DB events)
     getUpcomingEvents(userId),
+    // Approved vacation requests
+    session ? prisma.vacationRequest.findMany({
+      where: {
+        userId: session.id,
+        status: "APROVADO",
+        dataInicio: { gte: new Date() },
+      },
+      orderBy: { dataInicio: "asc" },
+    }) : Promise.resolve([]),
   ]);
 
-  const ultimoHolerite = payslips?.holerites?.[0];
-  const activeBenefits = benefits?.beneficios?.filter((b) => b.ativo) || [];
+  // Compute banco de horas from real DB data
+  const bancoHorasMinutos = dbTimeRecords.reduce((acc, r) => acc + r.saldoDia, 0);
+  const bancoHorasLabel = (() => {
+    const sign = bancoHorasMinutos >= 0 ? "+" : "-";
+    const abs = Math.abs(bancoHorasMinutos);
+    const h = Math.floor(abs / 60);
+    const m = abs % 60;
+    return m > 0 ? `${sign}${h}h${String(m).padStart(2, "0")}` : `${sign}${h}h`;
+  })();
+  const statusHoje = (() => {
+    if (!dbTodayRecord) return "Sem registro hoje";
+    const lastEvent = dbTodayRecord.events[dbTodayRecord.events.length - 1];
+    if (!lastEvent) return "Sem batidas hoje";
+    return lastEvent.tipo === "ENTRADA" ? `Entrada às ${lastEvent.horario}` : `Saída às ${lastEvent.horario}`;
+  })();
+
+  // Merge approved DB requests into upcoming events
+  const dbVacationEvents: UpcomingEvent[] = approvedRequests.map((req) => ({
+    id: `event-ferias-db-${req.id}`,
+    tipo: "ferias" as const,
+    titulo: "Férias Aprovadas ✅",
+    descricao: `${req.diasGozados} dias de férias${req.origem === "CHAT_IA" ? " (solicitado via IA)" : ""}`,
+    data: req.dataInicio.toISOString().split("T")[0],
+    dataFim: req.dataFim.toISOString().split("T")[0],
+    prioridade: "alta" as const,
+    acao: {
+      label: "Ver detalhes",
+      href: "/ferias",
+    },
+  }));
+
+  // Combine mock + real events, sort by date, remove duplicate vacation events
+  const allEvents = [...(mockEvents || []), ...dbVacationEvents]
+    .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+  // Deduplicate: if a DB event overlaps with a mock event for the same date range, prefer DB
+  const seenDates = new Set<string>();
+  const upcomingEvents = allEvents.filter((event) => {
+    if (event.tipo === "ferias") {
+      const key = `ferias-${event.data}`;
+      if (seenDates.has(key)) return false;
+      seenDates.add(key);
+    }
+    return true;
+  });
+
+  const ultimoHolerite = dbPayslip ? {
+    salarioLiquido: Number(dbPayslip.salarioLiquido),
+    competencia: dbPayslip.competencia,
+  } : null;
+  const activeBenefits = dbBenefits;
 
   // Format currency
   const formatCurrency = (value: number) =>
@@ -248,19 +319,17 @@ export default async function SuperAppHomePage() {
               <div>
                 <p className="text-sm text-muted-foreground">Banco de Horas</p>
                 <p className="text-xl font-semibold font-mono tabular-nums text-foreground">
-                  {clock?._meta?.bancoHorasLabel?.short || "0h"}
+                  {bancoHorasLabel}
                 </p>
               </div>
             </div>
             <CaretRight className="w-5 h-5 text-muted-foreground" />
           </div>
-          {clock && (
-            <div className="mt-3 pt-3 border-t border-slate-100">
-              <p className="text-xs text-muted-foreground">
-                {clock._meta.statusHoje.short}
-              </p>
-            </div>
-          )}
+          <div className="mt-3 pt-3 border-t border-slate-100">
+            <p className="text-xs text-muted-foreground">
+              {statusHoje}
+            </p>
+          </div>
         </DashboardCard>
 
         {/* Benefits */}
@@ -284,7 +353,7 @@ export default async function SuperAppHomePage() {
               <p className="text-xs text-muted-foreground truncate">
                 {activeBenefits
                   .slice(0, 3)
-                  .map((b) => b.nome)
+                  .map((b: { nome: string }) => b.nome)
                   .join(", ")}
               </p>
             </div>

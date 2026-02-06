@@ -121,11 +121,11 @@ export default function LoginPage() {
             <div className="space-y-2 text-xs font-mono bg-muted/50 p-3 rounded-lg">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Admin:</span>
-                <span>admin@pulse.com / admin123</span>
+                <span>admin@pulse.com / demo123</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">User:</span>
-                <span>maria@pulse.com / user123</span>
+                <span>nome.matricula@pulse.com / demo123</span>
               </div>
             </div>
           </div>

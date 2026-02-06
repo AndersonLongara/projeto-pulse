@@ -75,7 +75,6 @@ export async function getUsers() {
         cargo: true,
         departamento: true,
         ativo: true,
-        ativo: true,
         createdAt: true,
         situacao: true,
         vacationPeriods: {

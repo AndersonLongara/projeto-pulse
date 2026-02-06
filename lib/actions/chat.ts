@@ -295,6 +295,7 @@ export async function getActiveSessions(): Promise<ChatSession[]> {
 
   const sessions = await prisma.chatSession.findMany({
     where: {
+      tipo: "EMPLOYEE",
       status: { in: ["ACTIVE_IA", "HUMAN_INTERVENTION", "WAITING_HUMAN"] },
     },
     include: {

@@ -15,6 +15,8 @@
  */
 
 import { z } from "zod";
+import { streamText, stepCountIs, convertToModelMessages, type UIMessage } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import {
@@ -22,34 +24,18 @@ import {
   buildContextInjection,
   shouldTriggerEscape,
 } from "@/lib/ai/system-prompt";
-import {
-  getVacationData,
-  getPayslips,
-  getClockEvents,
-  getBenefits,
-} from "@/lib/services/senior-mock";
 import { getRealAIContextData } from "@/lib/services/ai-context";
 
 // ===========================================
 // CONFIGURATION
 // ===========================================
 
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const PULSE_AI_MODEL = "google/gemini-2.5-flash-lite";
-
-// ===========================================
-// VALIDATION SCHEMA
-// ===========================================
-
-const chatRequestSchema = z.object({
-  messages: z.array(
-    z.object({
-      role: z.enum(["user", "assistant", "system"]),
-      content: z.string(),
-    })
-  ),
-  sessionId: z.string().optional(),
+const openai = createOpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: process.env.OPENROUTER_API_KEY,
 });
+
+const PULSE_AI_MODEL = "google/gemini-2.5-flash-lite"; // Confirmed OpenRouter ID for Gemini 2.5 Flash Lite
 
 // ===========================================
 // ESCAPE RESPONSE
@@ -60,367 +46,222 @@ const ESCAPE_RESPONSE = `Olha, esse assunto é mais complexo e merece uma atenç
 _Um especialista vai te atender em breve._`;
 
 // ===========================================
-// HELPER: Format date to Brazilian format
-// ===========================================
-
-function formatDateBR(isoDate: string): string {
-  const date = new Date(isoDate);
-  return date.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
-}
-
-// ===========================================
-// HELPER: Fetch employee context for RAG
-// ===========================================
-
-async function fetchEmployeeContext(userId: string, userName: string) {
-  // Fetch all data in parallel for performance
-  const [vacationData, payslipData, clockData, benefitsData] = await Promise.all([
-    getVacationData(userId),
-    getPayslips(userId),
-    getClockEvents(userId),
-    getBenefits(userId),
-  ]);
-
-  // Build context object
-  const contextData: Parameters<typeof buildContextInjection>[0] = {
-    userName,
-  };
-
-  if (vacationData) {
-    contextData.vacation = {
-      saldoDias: vacationData.saldoDias,
-      diasGozados: vacationData.diasGozados,
-      proximoVencimento: formatDateBR(vacationData.proximoVencimento),
-      periodoAquisitivoInicio: formatDateBR(vacationData.periodoAquisitivo.inicio),
-      periodoAquisitivoFim: formatDateBR(vacationData.periodoAquisitivo.fim),
-    };
-  }
-
-  if (payslipData && payslipData.holerites.length > 0) {
-    const ultimoHolerite = payslipData.holerites[0];
-    contextData.payroll = {
-      ultimaCompetencia: ultimoHolerite.competencia,
-      salarioBruto: ultimoHolerite.salarioBruto,
-      salarioLiquido: ultimoHolerite.salarioLiquido,
-      totalDescontos: ultimoHolerite.totalDescontos,
-      dataPagamento: formatDateBR(ultimoHolerite.dataPagamento),
-      descontos: ultimoHolerite.descontos.map((d) => ({
-        descricao: d.descricao,
-        referencia: d.referencia,
-        valor: d.valor,
-      })),
-    };
-  }
-
-  if (clockData) {
-    contextData.clock = {
-      bancoHoras: clockData._meta.bancoHorasLabel.short,
-      statusHoje: clockData._meta.statusHoje.long,
-      diasTrabalhados: clockData.resumoMes.diasTrabalhados,
-      diasUteis: clockData.resumoMes.diasUteis,
-    };
-  }
-
-  if (benefitsData) {
-    contextData.benefits = benefitsData.beneficios
-      .filter((b) => b.ativo)
-      .map((b) => ({
-        nome: b.nome,
-        valor: b.valor,
-        status: b._display.status,
-      }));
-  }
-
-  return buildContextInjection(contextData);
-}
-
-// ===========================================
 // POST HANDLER
 // ===========================================
 
 export async function POST(request: Request) {
   try {
-    // 1. Check API key
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({ error: "API key não configurada" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // 2. Authenticate user
+    // 1. Authenticate user
     const userSession = await getSession();
     if (!userSession) {
-      return new Response(
-        JSON.stringify({ error: "Não autenticado" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
-      );
+      return new Response("Unauthorized", { status: 401 });
     }
 
-    // 3. Parse and validate request body
-    const body = await request.json();
-    const validated = chatRequestSchema.safeParse(body);
+    const { messages, sessionId } = await request.json();
 
-    if (!validated.success) {
-      return new Response(
-        JSON.stringify({ error: "Dados inválidos", details: validated.error.issues }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    const { messages, sessionId } = validated.data;
-
-    // 4. Check if session exists and its status
+    // 2. Validate Session
     if (sessionId) {
       const chatSession = await prisma.chatSession.findUnique({
         where: { id: sessionId },
         select: { status: true, userId: true },
       });
 
-      if (!chatSession) {
-        return new Response(
-          JSON.stringify({ error: "Sessão não encontrada" }),
-          { status: 404, headers: { "Content-Type": "application/json" } }
-        );
+      if (!chatSession || chatSession.userId !== userSession.id) {
+        return new Response("Session not found or forbidden", { status: 403 });
       }
 
-      // Verify ownership
-      if (chatSession.userId !== userSession.id) {
-        return new Response(
-          JSON.stringify({ error: "Acesso negado" }),
-          { status: 403, headers: { "Content-Type": "application/json" } }
-        );
-      }
-
-      // If session is under human intervention, don't process AI
       if (chatSession.status === "HUMAN_INTERVENTION") {
-        return new Response(
-          JSON.stringify({
-            error: "Sessão em atendimento humano",
-            status: "HUMAN_INTERVENTION",
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "Sessão em atendimento humano" }), { status: 200 });
       }
     }
 
-    // 5. Get last user message
-    const lastUserMessage = messages.filter((m) => m.role === "user").pop();
+    // 3. Save User Message
+    const lastUserMessage = messages[messages.length - 1];
+    
+    // Extract text content from message (AI SDK v6 uses parts array)
+    const getMessageContent = (msg: { content?: string; parts?: Array<{ type: string; text?: string }> }): string => {
+      if (msg.content) return msg.content;
+      if (msg.parts) {
+        return msg.parts
+          .filter((p: { type: string; text?: string }) => p.type === 'text' && p.text)
+          .map((p: { text?: string }) => p.text)
+          .join('');
+      }
+      return '';
+    };
+    
+    const lastUserContent = getMessageContent(lastUserMessage);
+    console.log(`[Chat] Processing message for session ${sessionId}. User message: ${lastUserContent?.slice(0, 50)}...`);
 
-    if (sessionId && lastUserMessage) {
-      // Save user message to database
-      await prisma.chatMessage.create({
-        data: {
-          sessionId,
-          senderType: "USER",
-          senderId: userSession.id,
-          content: lastUserMessage.content,
-        },
-      });
-
-      // Update session timestamp
-      await prisma.chatSession.update({
-        where: { id: sessionId },
-        data: { updatedAt: new Date() },
-      });
+    if (sessionId && lastUserMessage?.role === "user" && lastUserContent) {
+      try {
+        await prisma.chatMessage.create({
+          data: {
+            sessionId,
+            senderType: "USER",
+            senderId: userSession.id,
+            content: lastUserContent,
+          },
+        });
+        await prisma.chatSession.update({
+          where: { id: sessionId },
+          data: { updatedAt: new Date() },
+        });
+        console.log("[Chat] User message saved to DB");
+      } catch (dbError) {
+        console.error("[Chat] Failed to save user message:", dbError);
+      }
+    } else {
+      console.warn("[Chat] Skipping user message save. SessionId:", sessionId, "LastRole:", lastUserMessage?.role);
     }
 
-    // 6. Check for escape triggers
-    if (lastUserMessage && shouldTriggerEscape(lastUserMessage.content)) {
-      // Update session to waiting for human
+    // 4. Escape Protocol Check
+    if (lastUserContent && shouldTriggerEscape(lastUserContent)) {
       if (sessionId) {
         await prisma.chatSession.update({
           where: { id: sessionId },
           data: { status: "WAITING_HUMAN" },
         });
       }
-
-      // Return escape response as plain text (non-streaming)
-      return new Response(ESCAPE_RESPONSE, {
-        headers: { "Content-Type": "text/plain" },
-      });
+      return new Response(ESCAPE_RESPONSE, { headers: { "Content-Type": "text/plain" } });
     }
 
-    // 7. Fetch employee context for RAG (Hybrid: Real Database + Mock Fallback)
+    // 5. Build Context (RAG)
     const realVacationData = await getRealAIContextData(userSession.id);
 
-    // Fetch mock data (will be used for payroll/benefits/clock which aren't in DB yet)
-    const mockId = "emp-001";
-    const [payslipData, clockData, benefitsData] = await Promise.all([
-      getPayslips(mockId),
-      getClockEvents(mockId),
-      getBenefits(mockId),
-    ]);
-
-    // Build merged context object
-    const mergedData: Parameters<typeof buildContextInjection>[0] = {
+    // Fallback for missing data
+    const mergedData = {
       userName: userSession.nome,
+      ...realVacationData
     };
 
-    // Use REAL vacation data if available
-    if (realVacationData?.vacation) {
-      mergedData.vacation = realVacationData.vacation;
-    }
-
-    // Still using MOCK for these (not migratred to DB yet)
-    if (payslipData && payslipData.holerites.length > 0) {
-      const ultimoHolerite = payslipData.holerites[0];
-      mergedData.payroll = {
-        ultimaCompetencia: ultimoHolerite.competencia,
-        salarioBruto: ultimoHolerite.salarioBruto,
-        salarioLiquido: ultimoHolerite.salarioLiquido,
-        totalDescontos: ultimoHolerite.totalDescontos,
-        dataPagamento: formatDateBR(ultimoHolerite.dataPagamento),
-        descontos: ultimoHolerite.descontos.map((d) => ({
-          descricao: d.descricao,
-          referencia: d.referencia,
-          valor: d.valor,
-        })),
-      };
-    }
-
-    if (clockData) {
-      mergedData.clock = {
-        bancoHoras: clockData._meta.bancoHorasLabel.short,
-        statusHoje: clockData._meta.statusHoje.long,
-        diasTrabalhados: clockData.resumoMes.diasTrabalhados,
-        diasUteis: clockData.resumoMes.diasUteis,
-      };
-    }
-
-    if (benefitsData) {
-      mergedData.benefits = benefitsData.beneficios
-        .filter((b) => b.ativo)
-        .map((b) => ({
-          nome: b.nome,
-          valor: b.valor,
-          status: b._display.status,
-        }));
-    }
-
-    // 8. Build system prompt with combined context snippet
     const employeeContextSnippet = buildContextInjection(mergedData);
     const systemPrompt = buildSystemPrompt() + employeeContextSnippet;
 
-    // 9. Prepare messages for OpenRouter (OpenAI format)
-    const openRouterMessages = [
-      { role: "system", content: systemPrompt },
-      ...messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
-    ];
+    // 6. Streaming with Tools
+    // Convert UI messages to model messages format (AI SDK v6)
+    const uiMessages = messages.filter((m: UIMessage) => m.role !== 'system') as UIMessage[];
+    const modelMessages = await convertToModelMessages(uiMessages);
+    
+    const result = streamText({
+      model: openai.chat(PULSE_AI_MODEL),
+      system: systemPrompt,
+      messages: modelMessages,
+      stopWhen: stepCountIs(5), // Allow multi-step tool calls
+      tools: {
+        checkVacationEligibility: {
+          description: "Verifica se o colaborador tem saldo e se o período desejado é válido.",
+          inputSchema: z.object({
+            startDate: z.string().describe("Data de início das férias (YYYY-MM-DD)"),
+            days: z.number().describe("Quantidade de dias de férias"),
+            sellDays: z.number().optional().describe("Dias de abono pecuniário (vender férias)"),
+          }),
+          execute: async ({ startDate, days, sellDays }: { startDate: string; days: number; sellDays?: number }) => {
+            console.log(`[Tool] Checking eligibility for ${userSession.nome}: ${startDate}, ${days} days`);
 
-    // 10. Call OpenRouter API with streaming
-    const openRouterResponse = await fetch(OPENROUTER_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "Pulse IA - HR Assistant",
-      },
-      body: JSON.stringify({
-        model: PULSE_AI_MODEL,
-        messages: openRouterMessages,
-        stream: true,
-        temperature: 0.7,
-        max_tokens: 1024,
-        top_p: 0.9,
-      }),
-    });
-
-    if (!openRouterResponse.ok) {
-      const errorText = await openRouterResponse.text();
-      console.error("[OpenRouter Error]", errorText);
-      return new Response(
-        JSON.stringify({ error: "Erro ao processar IA" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // 11. Create streaming response
-    const encoder = new TextEncoder();
-    let fullResponse = "";
-
-    const stream = new ReadableStream({
-      async start(controller) {
-        const reader = openRouterResponse.body?.getReader();
-        if (!reader) {
-          controller.close();
-          return;
-        }
-
-        const decoder = new TextDecoder();
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split("\n");
-
-            for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                const data = line.slice(6);
-
-                if (data === "[DONE]") {
-                  continue;
-                }
-
-                try {
-                  const parsed = JSON.parse(data);
-                  const content = parsed.choices?.[0]?.delta?.content;
-
-                  if (content) {
-                    fullResponse += content;
-                    controller.enqueue(encoder.encode(content));
-                  }
-                } catch {
-                  // Ignore parsing errors for incomplete chunks
-                }
+            // Fetch latest vacation period
+            const user = await prisma.user.findUnique({
+              where: { id: userSession.id },
+              include: {
+                vacationPeriods: { orderBy: { inicioAquisitivo: "desc" }, take: 1 }
               }
-            }
-          }
+            });
 
-          // Save AI response to database after streaming completes
-          if (sessionId && fullResponse) {
+            const period = user?.vacationPeriods[0];
+            if (!period) return { valid: false, reason: "Período aquisitivo não encontrado." };
+
+            const balance = period.diasSaldo; // In a real app, subtract scheduled but not taken
+            // Hard rule: Notice 30 days
+            const start = new Date(startDate);
+            const today = new Date();
+            const diffTime = start.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays < 30) {
+              return {
+                valid: false,
+                reason: `O pedido deve ser feito com pelo menos 30 dias de antecedência. A data mais próxima seria ${new Date(today.setDate(today.getDate() + 30)).toLocaleDateString('pt-BR')}.`
+              };
+            }
+
+            // Balance Check
+            const totalRequested = days + (sellDays || 0);
+            if (totalRequested > balance) {
+              return {
+                valid: false,
+                reason: `Saldo insuficiente. Você tem ${balance} dias, mas pediu ${totalRequested}.`
+              };
+            }
+
+            // Rule: Min 5 days
+            if (days < 5) {
+              return { valid: false, reason: "O período mínimo de férias é de 5 dias." };
+            }
+
+            return {
+              valid: true,
+              balance,
+              message: `✅ Período válido! Saldo atual: ${balance} dias. Você pediu ${days} dias de férias` + (sellDays ? ` e ${sellDays} de abono.` : ".") + " Posso confirmar o agendamento?"
+            };
+          },
+        },
+
+        createVacationRequest: {
+          description: "Cria efetivamente a solicitação de férias no sistema após confirmação.",
+          inputSchema: z.object({
+            startDate: z.string().describe("Data de início confirmada (YYYY-MM-DD)"),
+            days: z.number().describe("Quantidade de dias de férias"),
+            sellDays: z.number().optional().describe("Dias de abono pecuniário"),
+          }),
+          execute: async ({ startDate, days, sellDays }: { startDate: string; days: number; sellDays?: number }) => {
+            console.log(`[Tool] Creating request for ${userSession.nome}`);
+
+            // Create in DB
+            const request = await prisma.vacationRequest.create({
+              data: {
+                userId: userSession.id,
+                dataInicio: new Date(startDate),
+                dataFim: new Date(new Date(startDate).setDate(new Date(startDate).getDate() + days - 1)),
+                diasGozados: days,
+                diasAbono: sellDays || 0,
+                status: "PENDENTE",
+                origem: "CHAT_IA",
+              }
+            });
+
+            return {
+              success: true,
+              protocol: request.id,
+              message: `Solicitação criada com sucesso! Protocolo #${request.id.slice(-6)}. O RH irá analisar.`
+            };
+          }
+        }
+      },
+      onFinish: async ({ text }) => {
+        // Save AI response (final text)
+        if (sessionId && text) {
+          try {
             await prisma.chatMessage.create({
               data: {
                 sessionId,
                 senderType: "AI",
                 senderId: null,
-                content: fullResponse,
+                content: text,
               },
             });
+            console.log("[Chat] AI response saved to DB");
+          } catch (dbError) {
+            console.error("[Chat] Failed to save AI response:", dbError);
           }
-
-          controller.close();
-        } catch (error) {
-          console.error("[Stream Error]", error);
-          controller.error(error);
         }
       },
     });
 
-    return new Response(stream, {
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "Transfer-Encoding": "chunked",
-      },
-    });
-  } catch (error) {
-    console.error("[Chat API Error]", error);
+    // Return the UI Message Stream Response (AI SDK v6 format)
+    return result.toUIMessageStreamResponse();
 
-    return new Response(
-      JSON.stringify({ error: "Erro interno do servidor" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+  } catch (error) {
+    console.error("[Chat Error]", error);
+    return new Response(JSON.stringify({ error: "Erro interno no chat" }), { status: 500 });
   }
 }

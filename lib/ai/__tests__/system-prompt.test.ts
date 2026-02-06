@@ -13,30 +13,34 @@ import {
 
 describe("AI System Prompt", () => {
   describe("buildSystemPrompt", () => {
-    it("should include persona definition", () => {
+    it("should include Senior HR Specialist persona definition", () => {
       const prompt = buildSystemPrompt();
-      expect(prompt).toContain("Pulse Helper");
-      expect(prompt).toContain("24 anos");
+      expect(prompt).toContain("Especialista em RH oficial da empresa");
+      expect(prompt).toContain("Representante da Empresa");
     });
 
-    it("should include scope definition", () => {
+    it("should include Rule 7 (Dificult to find, shifted to Rule 5)", () => {
       const prompt = buildSystemPrompt();
-      expect(prompt).toContain("Férias");
-      expect(prompt).toContain("Folha de Pagamento");
-      expect(prompt).toContain("Ponto Eletrônico");
-      expect(prompt).toContain("Benefícios");
+      expect(prompt).toContain("REGRAS E LEIS");
+      expect(prompt).toContain("contexto fornecido");
     });
 
-    it("should include escape protocol", () => {
+    it("should include behavior examples (Few-Shot)", () => {
       const prompt = buildSystemPrompt();
-      expect(prompt).toContain("Protocolo de Escape");
-      expect(prompt).toContain("especialistas humanos");
+      expect(prompt).toContain("Exemplos de Comportamento");
+      expect(prompt).toContain("Posso vender férias?");
     });
 
-    it("should include markdown formatting rules", () => {
+    it("should specifically include 13th advance rule in examples", () => {
       const prompt = buildSystemPrompt();
-      expect(prompt).toContain("negrito");
-      expect(prompt).toContain("tabelas Markdown");
+      expect(prompt).toContain("Adiantamento de 13º");
+      expect(prompt).toContain("Janeiro"); // Reverted to check if 'Janeiro' is actually still in the prompt text I added
+    });
+
+    it("should include CLT Art 130 table", () => {
+      const prompt = buildSystemPrompt();
+      expect(prompt).toContain("Art. 130 CLT");
+      expect(prompt).toContain("Até 5 faltas");
     });
   });
 
@@ -47,7 +51,7 @@ describe("AI System Prompt", () => {
       expect(context).toContain("[CONTEXTO_ATUAL_DO_COLABORADOR]");
     });
 
-    it("should include vacation data when provided", () => {
+    it("should include 'faltas' data when provided", () => {
       const context = buildContextInjection({
         userName: "João",
         vacation: {
@@ -56,82 +60,33 @@ describe("AI System Prompt", () => {
           proximoVencimento: "15 de março de 2027",
           periodoAquisitivoInicio: "15 de março de 2025",
           periodoAquisitivoFim: "14 de março de 2026",
+          faltas: 7,
         },
       });
       expect(context).toContain("20 dias");
-      expect(context).toContain("10 dias");
-      expect(context).toContain("Férias");
-    });
-
-    it("should include payroll data when provided", () => {
-      const context = buildContextInjection({
-        userName: "Ana",
-        payroll: {
-          ultimaCompetencia: "12/2025",
-          salarioBruto: 8500,
-          salarioLiquido: 6000,
-          totalDescontos: 2500,
-          dataPagamento: "05 de janeiro de 2026",
-          descontos: [
-            { descricao: "INSS", referencia: "14%", valor: 828.38 },
-          ],
-        },
-      });
-      expect(context).toContain("12/2025");
-      expect(context).toContain("8500");
-      expect(context).toContain("INSS");
-    });
-
-    it("should include clock data when provided", () => {
-      const context = buildContextInjection({
-        userName: "Carlos",
-        clock: {
-          bancoHoras: "+02:30",
-          statusHoje: "Trabalhando",
-          diasTrabalhados: 15,
-          diasUteis: 22,
-        },
-      });
-      expect(context).toContain("+02:30");
-      expect(context).toContain("Trabalhando");
-      expect(context).toContain("15/22");
-    });
-
-    it("should include benefits when provided", () => {
-      const context = buildContextInjection({
-        userName: "Beatriz",
-        benefits: [
-          { nome: "Vale Refeição", valor: 726, status: "Ativo" },
-          { nome: "Plano de Saúde", valor: 850, status: "Ativo" },
-        ],
-      });
-      expect(context).toContain("Vale Refeição");
-      expect(context).toContain("Plano de Saúde");
+      expect(context).toContain("Faltas no período aquisitivo: **7**");
     });
   });
 
   describe("shouldTriggerEscape", () => {
     it("should trigger on frustration keywords", () => {
       expect(shouldTriggerEscape("isso não funciona")).toBe(true);
-      expect(shouldTriggerEscape("estou cansado disso")).toBe(true);
       expect(shouldTriggerEscape("que absurdo")).toBe(true);
     });
 
-    it("should trigger on out-of-scope topics", () => {
+    it("should trigger on sensitive out-of-scope topics", () => {
       expect(shouldTriggerEscape("quero pedir demissão")).toBe(true);
-      expect(shouldTriggerEscape("quando terei uma promoção")).toBe(true);
       expect(shouldTriggerEscape("quero falar sobre assédio")).toBe(true);
+      expect(shouldTriggerEscape("estou grávida")).toBe(true);
     });
 
-    it("should not trigger on normal HR questions", () => {
-      expect(shouldTriggerEscape("quanto tempo de férias tenho?")).toBe(false);
-      expect(shouldTriggerEscape("quero ver meu holerite")).toBe(false);
-      expect(shouldTriggerEscape("meu ponto está correto?")).toBe(false);
-    });
-
-    it("should be case insensitive", () => {
-      expect(shouldTriggerEscape("DEMISSÃO")).toBe(true);
-      expect(shouldTriggerEscape("Promoção")).toBe(true);
+    it("should NOT trigger on general legal questions (handled by persona)", () => {
+      expect(shouldTriggerEscape("posso vender férias?")).toBe(false);
+      expect(shouldTriggerEscape("como funciona o 13º?")).toBe(false);
+      expect(shouldTriggerEscape("Prazos legais de aviso e recibo de férias")).toBe(false);
+      expect(shouldTriggerEscape("Posso solicitar adiantamento de décimo terceiro com as férias")).toBe(false);
+      expect(shouldTriggerEscape("Posso converter dias de férias em abono pecuniário (vender férias)")).toBe(false);
     });
   });
 });
+

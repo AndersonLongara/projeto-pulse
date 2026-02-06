@@ -17,6 +17,8 @@ import {
   Gear,
   SignOut,
   ChartLine,
+  ClipboardText,
+  Robot,
 } from "@phosphor-icons/react/dist/ssr";
 import { getSession } from "@/lib/auth";
 import { logout } from "@/lib/actions/auth";
@@ -26,7 +28,9 @@ import { Logo } from "@/components/ui/logo";
 const navItems = [
   { href: "/dashboard", icon: House, label: "Dashboard" },
   { href: "/analytics", icon: ChartLine, label: "Analytics" },
+  { href: "/requests", icon: ClipboardText, label: "Solicitações" },
   { href: "/chats", icon: ChatCircleDots, label: "Conversas" },
+  { href: "/admin-chat", icon: Robot, label: "Pulse Gestão" },
   { href: "/users", icon: Users, label: "Usuários" },
   { href: "/settings", icon: Gear, label: "Configurações" },
 ];
